@@ -169,6 +169,10 @@ export interface SkinState {
     cellImg: string | null;
     /** optional full board-frame image with alpha (neon border etc.) */
     img: string | null;
+    /** true when the frame image includes the full interior (cells baked) */
+    interiorBaked?: boolean;
+    /** explicit frame img rect (design px) relative to the 1000x1000 board container */
+    frameRect?: { left: number; top: number; w: number; h: number };
   };
   tray: {
     style: 'original' | 'glass' | 'dark' | 'none';
@@ -201,6 +205,10 @@ export interface SkinState {
     img: string | null;
     /** optional per-kind FULL button images (glyph baked in) — pixel perfect */
     imgs: Record<string, string>;
+    /** optional per-kind OFF-state images (toggle icons, e.g. music/sfx with slash) */
+    imgsOff?: Record<string, string>;
+    /** fraction of the img canvas occupied by the disc (default 0.70) */
+    imgScale?: Record<string, number>;
     /** home-row button size override (design px, default 170) */
     size: number | null;
     /** home icon-row center-Y override (design px, default 1770) */
@@ -225,6 +233,8 @@ export interface SkinState {
     img: string | null;
     /** home logo center-Y override (design px, default 532) */
     y: number | null;
+    /** true = logo is baked into the home background image; skip drawing it */
+    hidden?: boolean;
   };
   score: {
     style: 'bitmap' | 'css';
@@ -235,11 +245,19 @@ export interface SkinState {
     stroke: string;
     strokeWidth: number;
     size: number; // % of original
+    /** optional outer glow color (text-shadow beyond the stroke) */
+    glow?: string;
   };
   best: {
     font: FontId;
     color: string;
     size: number;
+    /** optional stroke color for the best digits */
+    stroke?: string;
+    /** optional stroke width (px) */
+    strokeWidth?: number;
+    /** optional outer glow color */
+    glow?: string;
     /** optional crown/best icon image with alpha (replaces the cup sprite) */
     iconImg: string | null;
   };
@@ -582,15 +600,15 @@ const RUSH11_TILES = [
   `${BP}/textures/rush/block-0-viola.png`,
   `${BP}/textures/rush/block-1-azzurro.png`,
   `${BP}/textures/rush/block-2-verde.png`,
-  `${BP}/textures/rush/block-3-giallo.png`,
-  `${BP}/textures/rush/block-4-arancione.png`,
-  `${BP}/textures/rush/block-5-rosso.png`,
-  `${BP}/textures/rush/block-6-rosa.png`,
-  `${BP}/textures/rush/block-7-blu.png`,
+  `${BP}/textures/rush/block-3-blu.png`,
+  `${BP}/textures/rush/block-4-viola-scuro.png`,
+  `${BP}/textures/rush/block-5-arancione.png`,
+  `${BP}/textures/rush/block-6-rosso.png`,
+  `${BP}/textures/rush/block-7-rosa.png`,
 ];
 const RUSH11_COLORS = [
-  '#AC39FC', '#03BEFD', '#0DD830', '#FCEA27',
-  '#FC8115', '#E31D2C', '#DE3BEF', '#1451FD',
+  '#B03FFD', '#03C0FD', '#10D931', '#1653FC',
+  '#5C27BD', '#FC8418', '#E31F2C', '#DE3CEF',
 ];
 
 export const BLOCK_RUSH_PRESET: PresetDef = {
@@ -632,8 +650,13 @@ export const BLOCK_RUSH_PRESET: PresetDef = {
         cellColor: '#0A1755',
         lineColor: '#0A1755',
         radius: 14,
-        cellImg: `${BP}/textures/rush/cell.png`,
+        cellImg: null,
         img: `${BP}/textures/rush/frame.png`,
+        // frame.png = board COMPLETO (bordo neon + interno con separatori, blocchi rimossi).
+        // Ritaglio ref (10,285)-(930,1195) mappato sulle celle app (scala 1.2 h / 1.168 v):
+        // rect relativo al container 1000x1000 = (-45, -35, 1104, 1063).
+        interiorBaked: true,
+        frameRect: { left: -45, top: -35, w: 1104, h: 1063 },
       },
       tray: { style: 'none', color: '#0A1755', opacity: 100, img: null },
       playBtn: {
@@ -644,8 +667,8 @@ export const BLOCK_RUSH_PRESET: PresetDef = {
         text: 'PLAY',
         glow: 30,
         img: `${BP}/textures/rush/play.png`,
-        size: 108,
-        y: 1334,
+        size: 100,
+        y: 1319,
       },
       iconBtn: {
         style: 'circle',
@@ -659,8 +682,13 @@ export const BLOCK_RUSH_PRESET: PresetDef = {
           ranking: `${BP}/textures/rush/btn-ranking.png`,
           pause: `${BP}/textures/rush/btn-pause.png`,
         },
-        size: 160,
-        rowY: 1655,
+        imgsOff: {
+          music: `${BP}/textures/rush/btn-music-off.png`,
+          sfx: `${BP}/textures/rush/btn-sfx-off.png`,
+        },
+        imgScale: { music: 0.70, sfx: 0.70, ranking: 0.70, pause: 0.893 },
+        size: 202,
+        rowY: 1664,
       },
       popup: { style: 'dark', c1: '#2E1B5E' },
       logo: {
@@ -676,18 +704,28 @@ export const BLOCK_RUSH_PRESET: PresetDef = {
         size: 92,
         img: `${BP}/textures/rush/logo.png`,
         y: 580,
+        hidden: true, // il logo è già dentro bg-home.jpg (1:1 dal reference)
       },
       score: {
         style: 'css',
         font: 'riffic',
-        color: '#FFFFFF',
-        c2: '#FFFFFF',
+        color: '#E9FDFF',
+        c2: '#E9FDFF',
         gradient: false,
-        stroke: '#2E7FE8',
-        strokeWidth: 8,
-        size: 100,
+        stroke: '#0A2BB0',
+        strokeWidth: 12,
+        size: 178,
+        glow: '#6FD8FF',
       },
-      best: { color: '#FFC94D', iconImg: `${BP}/textures/rush/crown.png` },
+      best: {
+        font: 'riffic',
+        color: '#FDF303',
+        size: 253,
+        stroke: '#5A1A66',
+        strokeWidth: 7,
+        glow: '#FFE94D',
+        iconImg: `${BP}/textures/rush/crown.png`,
+      },
       plus100: { style: 'classic', color: '#FFFFFF', glow: '#FFD700' },
       combo: { color: '#FFD700', glow: '#3FE8FE' },
       effects: { flashColor: '#FFFFFF', particles: 'original', comboGlow: '#FFD700' },

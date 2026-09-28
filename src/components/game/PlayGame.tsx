@@ -157,14 +157,14 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
       const color = colors[Math.min(63, Math.max(0, r * GRID))] ?? skinRef.effects.flashColor;
       for (let i = 0; i < 14; i++) {
         const dir = i % 2 === 0 ? 1 : -1;
-        out.push(mk(120 + Math.random() * 840, 411 + r * 120, dir * (260 + Math.random() * 300), (Math.random() - 0.5) * 220, skinRef.blocks.colors[color as number] ?? '#FFFFFF'));
+        out.push(mk(BOARD.originX + Math.random() * 840, BOARD.originY + r * 120, dir * (260 + Math.random() * 300), (Math.random() - 0.5) * 220, skinRef.blocks.colors[color as number] ?? '#FFFFFF'));
       }
     }
     for (const c of cols) {
       for (let i = 0; i < 14; i++) {
         const dir = i % 2 === 0 ? 1 : -1;
         const rr = Math.floor(Math.random() * 8);
-        out.push(mk(120 + c * 120, 411 + rr * 120, (Math.random() - 0.5) * 220, dir * (260 + Math.random() * 300), skinRef.blocks.colors[colors[rr * GRID + c] ?? 0] ?? '#FFFFFF'));
+        out.push(mk(BOARD.originX + c * 120, BOARD.originY + rr * 120, (Math.random() - 0.5) * 220, dir * (260 + Math.random() * 300), skinRef.blocks.colors[colors[rr * GRID + c] ?? 0] ?? '#FFFFFF'));
       }
     }
     void cleared;
@@ -306,8 +306,8 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
       const piece = drag.piece;
       const tlx = d.x - (piece.w * 120) / 2;
       const tly = (d.y - 200) - (piece.h * 120) / 2;
-      const c = Math.round((tlx - 60) / 120);
-      const r = Math.round((tly - 351) / 120);
+      const c = Math.round((tlx - (BOARD.x - 480)) / 120);
+      const r = Math.round((tly - (BOARD.y - 480)) / 120);
       if (r >= -1 && r <= GRID && c >= -1 && c <= GRID) {
         const valid = canPlace(boardRef.current, piece, r, c);
         const lines = valid ? previewLines(boardRef.current, piece, r, c) : { rows: [], cols: [] };
@@ -321,8 +321,8 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
       const piece = drag.piece;
       const tlx = d.x - (piece.w * 120) / 2;
       const tly = (d.y - 200) - (piece.h * 120) / 2;
-      const c = Math.round((tlx - 60) / 120);
-      const r = Math.round((tly - 351) / 120);
+      const c = Math.round((tlx - (BOARD.x - 480)) / 120);
+      const r = Math.round((tly - (BOARD.y - 480)) / 120);
       if (canPlace(boardRef.current, piece, r, c)) {
         doPlace(drag.slot, r, c);
       } else {
@@ -393,21 +393,21 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
           <MaskIconView sprite="Heart-f00.png" color={skin.effects.comboGlow} size={240} glow={30} />
         </div>
       )}
-      <div style={pos(540, 211.5, 700, 160)}>
+      <div style={pos(534, 243, 700, 200)}>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <ScoreTextView skin={skin} value={scoreShown} animateKey={scoreShown} />
         </div>
       </div>
-      <div style={pos(97, 76, 104, 104)}>
-        <BestIconView skin={skin} size={109} />
+      <div style={pos(143, 107, 222, 222)}>
+        <BestIconView skin={skin} size={222} glow={0} />
       </div>
-      <div style={pos(230, 82, 300, 64)}>
+      <div style={pos(268, 151, 320, 130)}>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center' }}>
           <BestTextView skin={skin} value={Math.max(best, score)} />
         </div>
       </div>
-      <div style={pos(974, 88, 100, 100)}>
-        <IconButtonView skin={skin} kind="pause" size={128} group="game" onClick={() => { setPaused(true); if (sfxOn) soundEngine.playEvent(skin.sounds.button); }} />
+      <div style={pos(981, 105, 177, 177)}>
+        <IconButtonView skin={skin} kind="pause" size={177} group="game" onClick={() => { setPaused(true); if (sfxOn) soundEngine.playEvent(skin.sounds.button); }} />
       </div>
 
       {/* board */}
@@ -488,33 +488,43 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
         </div>
       )}
 
-      {/* tray */}
-      {[0, 1, 2].map((slot) => {
-        const X = [196.5, 539.5, 883.5][slot];
-        const p = tray[slot];
+      {/* tray — 1:1 reference: 3 pezzi compatti al centro (cella 89px), gruppo centrato a x538, y1600 */}
+      {(() => {
         const ph = skin.tray;
-        const holder: React.CSSProperties = ph.img
-          ? { backgroundImage: `url(${ph.img})`, backgroundSize: '100% 100%' }
-          : ph.style === 'none'
-          ? {}
-          : ph.style === 'original'
-            ? { backgroundImage: 'url(/sprites/PlaceHolder-f00.png)', backgroundSize: '100% 100%' }
-            : ph.style === 'glass'
-              ? { background: withAlpha(ph.color, ph.opacity / 100), borderRadius: 36, border: '2px solid rgba(255,255,255,0.25)' }
-              : { background: withAlpha(ph.color, ph.opacity / 100), borderRadius: 36 };
-        const isDragging = drag?.slot === slot;
-        return (
-          <div key={slot} data-bb-slot={slot} style={pos(X, 1626, 250, 250)}
-            onPointerDown={onPieceDown(slot)}>
-            {(ph.img || ph.style !== 'none') && <div style={{ position: 'absolute', inset: 0, ...holder }} />}
-            {p && !isDragging && (
-              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'grab' }}>
-                <PieceView skin={skin} cells={p.cells} color={p.color} w={p.w} h={p.h} cellSize={60} />
-              </div>
-            )}
-          </div>
-        );
-      })}
+        const CELL = 89, GAP = 4, CY = 1600, CX = 538;
+        const widths = [0, 1, 2].map((s) => {
+          const t = tray[s];
+          return t ? t.w * CELL : CELL; // slot vuoto: larghezza 1 cella
+        });
+        const total = widths.reduce((a, b) => a + b, 0) + GAP * 2;
+        let cursor = CX - total / 2;
+        return [0, 1, 2].map((slot) => {
+          const p = tray[slot];
+          const X = cursor + widths[slot] / 2;
+          cursor += widths[slot] + GAP;
+          const holder: React.CSSProperties = ph.img
+            ? { backgroundImage: `url(${ph.img})`, backgroundSize: '100% 100%' }
+            : ph.style === 'none'
+            ? {}
+            : ph.style === 'original'
+              ? { backgroundImage: 'url(/sprites/PlaceHolder-f00.png)', backgroundSize: '100% 100%' }
+              : ph.style === 'glass'
+                ? { background: withAlpha(ph.color, ph.opacity / 100), borderRadius: 36, border: '2px solid rgba(255,255,255,0.25)' }
+                : { background: withAlpha(ph.color, ph.opacity / 100), borderRadius: 36 };
+          const isDragging = drag?.slot === slot;
+          return (
+            <div key={slot} data-bb-slot={slot} style={pos(X, CY, widths[slot] + 30, 130)}
+              onPointerDown={onPieceDown(slot)}>
+              {(ph.img || ph.style !== 'none') && <div style={{ position: 'absolute', inset: 0, ...holder }} />}
+              {p && !isDragging && (
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'grab', filter: 'drop-shadow(0 0 16px rgba(110, 70, 240, 0.45))' }}>
+                  <PieceView skin={skin} cells={p.cells} color={p.color} w={p.w} h={p.h} cellSize={CELL} />
+                </div>
+              )}
+            </div>
+          );
+        });
+      })()}
 
       {/* dragged piece follows the pointer, lifted like the original */}
       {drag && (

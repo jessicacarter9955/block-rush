@@ -623,25 +623,27 @@ function HomeScreen({
     <div style={{ position: 'absolute', inset: 0 }}>
       <BackgroundView skin={skin} variant="home" />
 
-      {/* logo */}
-      <div style={pos(540.5, logoY, 837, 888)}>
-        <LogoView skin={skin} />
-      </div>
+      {/* logo (nascosto quando è già dentro bg-home — preset 1:1) */}
+      {!skin.logo.hidden && (
+        <div style={pos(540.5, logoY, 837, 888)}>
+          <LogoView skin={skin} />
+        </div>
+      )}
 
-      {/* play */}
-      <div style={pos(540, playY, 625, 216)}>
+      {/* play — patch 1:1 dal reference: 722×298 centrata a (533, 1319) */}
+      <div style={pos(533, playY, 722, 298)}>
         <PlayButtonView skin={skin} onClick={onPlay} />
       </div>
 
-      {/* bottom icon row (original geometry: sfx 175 · ranking 540 · music 906 @1770) */}
-      <div style={{ position: 'absolute', left: 0, top: rowY - 85, width: 1080, height: 170 }}>
-        <div style={{ ...pos(175, 85, 170, 170) }}>
+      {/* bottom icon row — 1:1 reference: sfx 204 · ranking 539 · music 882 @1664, disco 202 */}
+      <div style={{ position: 'absolute', left: 0, top: rowY - 101, width: 1080, height: 202 }}>
+        <div style={{ ...pos(204, 101, 202, 202) }}>
           <IconButtonView skin={skin} kind="sfx" size={iconSize} group="home" on={sfxOn} onClick={onSfx} />
         </div>
-        <div style={{ ...pos(540, 85, 170, 170) }}>
+        <div style={{ ...pos(539, 101, 202, 202) }}>
           <IconButtonView skin={skin} kind="ranking" size={iconSize} group="home" onClick={onRanking} />
         </div>
-        <div style={{ ...pos(906, 85, 170, 170) }}>
+        <div style={{ ...pos(882, 101, 202, 202) }}>
           <IconButtonView skin={skin} kind="music" size={iconSize} group="home" on={musicOn} onClick={onMusic} />
         </div>
       </div>

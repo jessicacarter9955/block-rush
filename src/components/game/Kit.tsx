@@ -143,7 +143,7 @@ export function BackgroundView({ skin, variant = 'game' }: { skin: SkinState; va
 
 // ----------------------------------------------------------------- board ---
 
-export const BOARD = { x: 540, y: 831, size: 1000, cell: 120, originX: 120, originY: 411 };
+export const BOARD = { x: 532, y: 854, size: 1000, cell: 120, originX: 112, originY: 434 };
 
 export function BoardFrameView({ skin }: { skin: SkinState }) {
   const b = skin.board;
@@ -154,14 +154,14 @@ export function BoardFrameView({ skin }: { skin: SkinState }) {
     );
   }
   if (b.style === 'image' && b.img) {
-    // Frame 1:1 con alpha: l'immagine (1086×1086) ha l'area celle 960×960 a
-    // offset 63 → allineata alle celle del container (20..980): div shifted -43.
-    // Il glow esterno sborda dal container (voluto: si fonde col bg).
+    // Frame 1:1: rettangolo (di default 1086×1086 a offset -43) oppure esplicito
+    // via board.frameRect (board COMPLETO col interno: interiorBaked).
+    const fr = b.frameRect ?? { left: -43, top: -43, w: 1086, h: 1086 };
     return (
       <div
         style={{
           position: 'absolute',
-          left: -43, top: -43, width: 1086, height: 1086,
+          left: fr.left, top: fr.top, width: fr.w, height: fr.h,
           backgroundImage: `url(${b.img})`,
           backgroundSize: '100% 100%',
           backgroundRepeat: 'no-repeat',
@@ -242,6 +242,8 @@ export function cellRect(r: number, c: number, size = 120): CSSProperties {
 export function EmptyCellsView({ skin }: { skin: SkinState }) {
   if (skin.board.style === 'original') return null;
   const b = skin.board;
+  // board con interno incluso nell'immagine frame (interiorBaked): niente celle
+  if (b.style === 'image' && b.interiorBaked) return null;
   const cells: ReactNode[] = [];
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
@@ -529,11 +531,13 @@ export function IconButtonView({
   const w = wide ? size * (210 / 100) : size;
 
   // Bottone icona 1:1 con glifo incluso (estratto dallo screenshot).
-  // Asset normalizzato: cerchio al 70% del canvas → img scalata size/0.70,
-  // così il cerchio occupa esattamente `size` e il glow sborda (trasparente).
-  const fullImg = st.imgs?.[kind];
+  // Asset normalizzato: il disco occupa la frazione imgScale del canvas
+  // (default 0.70) → img scalata size/imgScale, così il disco misura `size`
+  // e il glow sborda (trasparente). OFF: usa imgsOff se presente.
+  const fullImg = (!on && st.imgsOff?.[kind]) || st.imgs?.[kind];
   if (fullImg) {
-    const iw = size / 0.70;
+    const scale = st.imgScale?.[kind] ?? 0.70;
+    const iw = size / scale;
     return (
       <div
         onClick={onClick}
@@ -629,15 +633,15 @@ export function IconButtonView({
 export function PlayButtonView({ skin, onClick }: { skin: SkinState; onClick?: () => void }) {
   const p = skin.playBtn;
   if (p.img) {
-    // Bottone 1:1 estratto dallo screenshot (alpha inclusa, triangolo e testo inclusi)
-    const bw = 625 * (p.size / 100);
-    const bh = 216 * (p.size / 100);
+    // Bottone 1:1 estratto dal reference (patch opaca 722×298 con margine+feather)
+    const bw = 722 * (p.size / 100);
+    const bh = 298 * (p.size / 100);
     return (
-      <div onClick={onClick} style={{ position: 'relative', width: 625, height: 216, cursor: 'pointer' }}>
+      <div onClick={onClick} style={{ position: 'relative', width: 722, height: 298, cursor: 'pointer' }}>
         <img src={p.img} alt="play" draggable={false}
           style={{
-            position: 'absolute', left: (625 - bw) / 2, top: (216 - bh) / 2,
-            width: bw, height: bh, objectFit: 'contain',
+            position: 'absolute', left: (722 - bw) / 2, top: (298 - bh) / 2,
+            width: bw, height: bh, objectFit: 'fill',
           }} />
       </div>
     );
@@ -816,7 +820,9 @@ export function ScoreTextView({
         ...(s.gradient ? gradientText(s.color, s.c2) : { color: s.color }),
         WebkitTextStroke: s.strokeWidth > 0 ? `${s.strokeWidth}px ${s.stroke}` : undefined,
         paintOrder: 'stroke fill',
-        textShadow: s.strokeWidth === 0 ? `0 4px 14px ${withAlpha('#000000', 0.45)}` : undefined,
+        textShadow: s.glow
+          ? `0 0 22px ${s.glow}, 0 0 58px ${s.glow}`
+          : s.strokeWidth === 0 ? `0 4px 14px ${withAlpha('#000000', 0.45)}` : undefined,
         lineHeight: 1,
       }}
     >
@@ -832,7 +838,10 @@ export function BestTextView({ skin, value }: { skin: SkinState; value: number |
       style={{
         ...fontCss(b.font, 44 * (b.size / 100)),
         color: b.color, lineHeight: 1,
-        textShadow: '0 2px 8px rgba(0,0,0,0.4)',
+        ...(b.strokeWidth ? { WebkitTextStroke: `${b.strokeWidth}px ${b.stroke}`, paintOrder: 'stroke fill' as const } : {}),
+        textShadow: b.glow
+          ? `0 0 18px ${b.glow}`
+          : '0 2px 8px rgba(0,0,0,0.4)',
       }}
     >
       {value}
