@@ -399,7 +399,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
         </div>
       </div>
       <div style={pos(97, 76, 104, 104)}>
-        <BestIconView skin={skin} size={104} />
+        <BestIconView skin={skin} size={109} />
       </div>
       <div style={pos(230, 82, 300, 64)}>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center' }}>
@@ -407,7 +407,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
         </div>
       </div>
       <div style={pos(974, 88, 100, 100)}>
-        <IconButtonView skin={skin} kind="pause" size={100} group="game" onClick={() => { setPaused(true); if (sfxOn) soundEngine.playEvent(skin.sounds.button); }} />
+        <IconButtonView skin={skin} kind="pause" size={128} group="game" onClick={() => { setPaused(true); if (sfxOn) soundEngine.playEvent(skin.sounds.button); }} />
       </div>
 
       {/* board */}
@@ -649,7 +649,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
           </div>
           <div style={{ ...pos(540, 1113, 700, 90), ...fontCss('riffic', 58), color: '#FFF', letterSpacing: '0.12em', textAlign: 'center' }}>BEST SCORE</div>
           <div style={pos(407.5, 1205.5, 140, 140)}>
-            <BestIconView skin={skin} size={140} />
+            <BestIconView skin={skin} size={147} />
           </div>
           <div style={pos(560, 1223, 300, 64)}>
             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center' }}>

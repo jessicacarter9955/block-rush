@@ -659,7 +659,7 @@ export const BLOCK_RUSH_PRESET: PresetDef = {
           ranking: `${BP}/textures/rush/btn-ranking.png`,
           pause: `${BP}/textures/rush/btn-pause.png`,
         },
-        size: 132,
+        size: 160,
         rowY: 1655,
       },
       popup: { style: 'dark', c1: '#2E1B5E' },

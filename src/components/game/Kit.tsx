@@ -529,11 +529,11 @@ export function IconButtonView({
   const w = wide ? size * (210 / 100) : size;
 
   // Bottone icona 1:1 con glifo incluso (estratto dallo screenshot).
-  // Asset normalizzato: cerchio al 60% del canvas → img scalata size/0.6,
+  // Asset normalizzato: cerchio al 70% del canvas → img scalata size/0.70,
   // così il cerchio occupa esattamente `size` e il glow sborda (trasparente).
   const fullImg = st.imgs?.[kind];
   if (fullImg) {
-    const iw = size / 0.6;
+    const iw = size / 0.70;
     return (
       <div
         onClick={onClick}
