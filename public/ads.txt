@@ -1,0 +1,13 @@
+# ads.txt — elenco dei venditori autorizzati per questo dominio (IAB).
+# Le righe che seguono sono COMMENTI: questo file non autorizza ancora nessuno.
+#
+# AppLixir (rewarded video): dopo la registrazione del sito nel dashboard
+# publisher, copia qui la riga esatta che ti forniscono in Sites → ads.txt.
+# Ha la forma:  subdomain.applixir.com, XXXXX, DIRECT
+#
+# AdSense / AdinPlay / Venatus (display): quando attivi una di queste network
+# ti daranno la propria riga da aggiungere (per AdSense è del tipo
+# google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0).
+#
+# Un ads.txt presente ma senza righe attive viene trattato come assente:
+# aggiungi le righe SOLO quando la network te le fornisce.

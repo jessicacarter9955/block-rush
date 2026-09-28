@@ -1,0 +1,1 @@
+Array.from(document.querySelectorAll('input[type=file]')).map((e, i) => i + ':accept=' + e.accept + ' inPanel=' + !!e.closest('aside, [class*=panel], [class*=Panel]'))
