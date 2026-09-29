@@ -510,7 +510,7 @@ export function PremiumIconButton({
 
 export function IconButtonView({
   skin, kind, size, on = true, variant = 'round', group = 'game',
-  onClick, active, forceVariant,
+  onClick, active, forceVariant, w,
 }: {
   skin: SkinState;
   kind: IconKind;
@@ -522,13 +522,15 @@ export function IconButtonView({
   active?: boolean;
   /** preview override used by the editor variant grid */
   forceVariant?: IconPremiumId;
+  /** explicit width for non-square original sprites (design px) */
+  w?: number;
 }) {
   const st = skin.iconBtn;
   const wide = variant === 'wide' ? WIDE_OF[kind] : undefined;
   const spriteObj = wide ?? SPRITE_OF[kind].obj;
   const premium = forceVariant ?? st.variants?.[group] ?? 'base';
   const frame = SPRITE_OF[kind].toggle ? (on ? 0 : 1) : 0;
-  const w = wide ? size * (210 / 100) : size;
+  const bw = w ?? (wide ? size * (210 / 100) : size);
 
   // Bottone icona 1:1 con glifo incluso (estratto dallo screenshot).
   // Asset normalizzato: il disco occupa la frazione imgScale del canvas
@@ -538,19 +540,20 @@ export function IconButtonView({
   if (fullImg) {
     const scale = st.imgScale?.[kind] ?? 0.70;
     const iw = size / scale;
+    const ih = w ? size : iw; // w esplicito: aspect naturale del patch
     return (
       <div
         onClick={onClick}
         style={{
-          position: 'relative', width: size, height: size, cursor: onClick ? 'pointer' : 'default',
+          position: 'relative', width: bw, height: size, cursor: onClick ? 'pointer' : 'default',
           filter: active ? 'drop-shadow(0 0 12px #FFC94D)' : undefined,
         }}
       >
         <img src={fullImg} alt={kind} draggable={false}
           style={{
             position: 'absolute',
-            left: (size - iw) / 2, top: (size - iw) / 2,
-            width: iw, height: iw, objectFit: 'contain',
+            left: (bw - iw) / 2, top: (size - ih) / 2,
+            width: iw, height: ih, objectFit: 'fill',
           }} />
       </div>
     );
@@ -577,7 +580,7 @@ export function IconButtonView({
       <div
         onClick={onClick}
         style={{
-          ...pos(0, 0, w, size), position: 'relative', cursor: onClick ? 'pointer' : 'default',
+          position: 'relative', width: bw, height: size, cursor: onClick ? 'pointer' : 'default',
           filter: active ? 'drop-shadow(0 0 12px #FFC94D)' : undefined,
         }}
       >
@@ -618,7 +621,7 @@ export function IconButtonView({
     <div
       onClick={onClick}
       style={{
-        width: w, height: size, borderRadius: radius, position: 'relative',
+        width: bw, height: size, borderRadius: radius, position: 'relative',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         cursor: onClick ? 'pointer' : 'default',
         filter: active ? 'drop-shadow(0 0 12px #FFC94D)' : undefined,
@@ -831,13 +834,13 @@ export function ScoreTextView({
   );
 }
 
-export function BestTextView({ skin, value }: { skin: SkinState; value: number | string }) {
+export function BestTextView({ skin, value, align = 'center' }: { skin: SkinState; value: number | string; align?: 'left' | 'center' }) {
   const b = skin.best;
   return (
     <div
       style={{
         ...fontCss(b.font, 44 * (b.size / 100)),
-        color: b.color, lineHeight: 1,
+        color: b.color, lineHeight: 1, textAlign: align,
         ...(b.strokeWidth ? { WebkitTextStroke: `${b.strokeWidth}px ${b.stroke}`, paintOrder: 'stroke fill' as const } : {}),
         textShadow: b.glow
           ? `0 0 18px ${b.glow}`

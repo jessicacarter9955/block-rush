@@ -8,7 +8,7 @@ import {
   useCallback, useEffect, useMemo, useRef, useState,
 } from 'react';
 import {
-  BackgroundView, BestIconView, BOARD, BestTextView, BoardFrameView, cellRect,
+  BackgroundView, BOARD, BestTextView, BoardFrameView, cellRect,
   ComboTextView, EmptyCellsView, IconButtonView, MaskIconView, PieceView,
   Plus100View, PopupSurface, pos, relPos, ScoreTextView,
 } from '@/components/game/Kit';
@@ -20,6 +20,7 @@ import {
 } from '@/lib/game';
 import { useStudio } from '@/lib/store';
 import { soundEngine } from '@/lib/audio';
+import { BP } from '@/lib/bp';
 import { withAlpha, lighten } from '@/lib/color';
 import { blockImgTile, fontCss, type SkinState } from '@/lib/skin';
 
@@ -31,6 +32,16 @@ interface Particle {
 }
 
 let FxId = 1;
+
+const RANKING_ROWS: { name: string; score: number }[] = [
+  { name: 'Kara', score: 1720 },
+  { name: 'Camila', score: 1586 },
+  { name: 'Philip', score: 1520 },
+  { name: 'Gianni', score: 1378 },
+  { name: 'Lya', score: 1250 },
+  { name: 'Ava', score: 1232 },
+  { name: 'Royce', score: 650 },
+];
 
 export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement | null> }) {
   const skin = useStudio((s) => s.skin);
@@ -55,6 +66,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
   const [reviveLeft, setReviveLeft] = useState(5);
   const revivesUsed = useRef(0);
   const [paused, setPaused] = useState(false);
+  const [ranking, setRanking] = useState(false);
   const [musicOn, setMusicOn] = useState(false);
   const [sfxOn, setSfxOn] = useState(true);
   const noScore = useRef(0);
@@ -212,13 +224,18 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
       if (sfxOn) soundEngine.playClear(skin.sounds.clear, comboAfter);
       if (nLines >= 2 && sfxOn) soundEngine.playCheer(skin.sounds.cheer, nLines);
 
-      const cy = 411 + (r + p.h / 2) * 120;
+      const cy = 434 + (r + p.h / 2) * 120;
       if (comboAfter >= 1) {
-        setComboShow({ n: comboAfter, x: 540, y: cy - 60 });
+        // COMBO badge fisso al centro della board (come il reference);
+        // il popup +N ha la sua corsia, così i due non si sovrappongono mai.
+        setComboShow({ n: comboAfter, x: 540, y: 960 });
         setTimeout(() => setComboShow(null), 1600);
         if (comboAfter > 1) setShakeKey((k) => k + 1);
       }
-      const pop: Popup = { id: FxId++, x: 540, y: Math.min(1560, cy + 60), value: earned };
+      // +N popup alla posizione del pezzo eliminato, fuori dalla corsia combo.
+      let ey = cy + 60;
+      if (ey > 700 && ey < 1160) ey = 700;
+      const pop: Popup = { id: FxId++, x: 540, y: Math.min(1500, ey), value: earned };
       setPopups((ps) => [...ps, pop]);
       setTimeout(() => setPopups((ps) => ps.filter((x) => x.id !== pop.id)), 1400);
       setScore((s) => s + earned);
@@ -387,27 +404,31 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
       >
       <BackgroundView skin={skin} />
 
-      {/* HUD */}
+      {/* HUD — 1:1: cuore e punteggio CONCENTRICI a (540,243), corona pulita
+          in alto a sx col best SOTTO, pausa patch ricostruita a (981,115) */}
       {heartOn && (
-        <div className="bb-heartpulse" style={pos(540, 210, 240, 240)}>
+        <div className="bb-heartpulse" style={pos(540, 243, 240, 240)}>
           <MaskIconView sprite="Heart-f00.png" color={skin.effects.comboGlow} size={240} glow={30} />
         </div>
       )}
-      <div style={pos(534, 243, 700, 200)}>
+      <div style={pos(540, 243, 700, 200)}>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <ScoreTextView skin={skin} value={scoreShown} animateKey={scoreShown} />
+          <ScoreTextView skin={skin} value={scoreShown} animateKey={score} />
         </div>
       </div>
-      <div style={pos(143, 107, 222, 222)}>
-        <BestIconView skin={skin} size={222} glow={0} />
+      {/* crown patch pulita (solo corona, sfondo rimosso, aspect naturale) */}
+      <div style={pos(111, 107, 158, 136)}>
+        <img src={`${BP}/sprites/CupIcon-f00.png`} alt="record" draggable={false}
+          style={{ width: '100%', height: '100%', objectFit: 'fill', display: 'block' }} />
       </div>
-      <div style={pos(268, 151, 320, 130)}>
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center' }}>
+      {/* best score — SOTTO la corona, centrato nella sua colonna */}
+      <div style={pos(111, 258, 320, 72)}>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <BestTextView skin={skin} value={Math.max(best, score)} />
         </div>
       </div>
-      <div style={pos(981, 105, 177, 177)}>
-        <IconButtonView skin={skin} kind="pause" size={177} group="game" onClick={() => { setPaused(true); if (sfxOn) soundEngine.playEvent(skin.sounds.button); }} />
+      <div style={pos(981, 115, 185, 185)}>
+        <IconButtonView skin={skin} kind="pause" size={185} group="game" onClick={() => { setPaused(true); if (sfxOn) soundEngine.playEvent(skin.sounds.button); }} />
       </div>
 
       {/* board */}
@@ -488,43 +509,38 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
         </div>
       )}
 
-      {/* tray — 1:1 reference: 3 pezzi compatti al centro (cella 89px), gruppo centrato a x538, y1600 */}
-      {(() => {
+      {/* tray — 1:1 reference: slot fissi ben distanziati (190/540/890), pezzi
+          a celle 89px, clamp delle forme larghe così non si toccano mai */}
+      {[0, 1, 2].map((slot) => {
+        const X = [190, 540, 890][slot];
+        const p = tray[slot];
         const ph = skin.tray;
-        const CELL = 89, GAP = 4, CY = 1600, CX = 538;
-        const widths = [0, 1, 2].map((s) => {
-          const t = tray[s];
-          return t ? t.w * CELL : CELL; // slot vuoto: larghezza 1 cella
-        });
-        const total = widths.reduce((a, b) => a + b, 0) + GAP * 2;
-        let cursor = CX - total / 2;
-        return [0, 1, 2].map((slot) => {
-          const p = tray[slot];
-          const X = cursor + widths[slot] / 2;
-          cursor += widths[slot] + GAP;
-          const holder: React.CSSProperties = ph.img
-            ? { backgroundImage: `url(${ph.img})`, backgroundSize: '100% 100%' }
-            : ph.style === 'none'
-            ? {}
-            : ph.style === 'original'
-              ? { backgroundImage: 'url(/sprites/PlaceHolder-f00.png)', backgroundSize: '100% 100%' }
-              : ph.style === 'glass'
-                ? { background: withAlpha(ph.color, ph.opacity / 100), borderRadius: 36, border: '2px solid rgba(255,255,255,0.25)' }
-                : { background: withAlpha(ph.color, ph.opacity / 100), borderRadius: 36 };
-          const isDragging = drag?.slot === slot;
-          return (
-            <div key={slot} data-bb-slot={slot} style={pos(X, CY, widths[slot] + 30, 130)}
-              onPointerDown={onPieceDown(slot)}>
-              {(ph.img || ph.style !== 'none') && <div style={{ position: 'absolute', inset: 0, ...holder }} />}
-              {p && !isDragging && (
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'grab', filter: 'drop-shadow(0 0 16px rgba(110, 70, 240, 0.45))' }}>
-                  <PieceView skin={skin} cells={p.cells} color={p.color} w={p.w} h={p.h} cellSize={CELL} />
+        const holder: React.CSSProperties = ph.img
+          ? { backgroundImage: `url(${ph.img})`, backgroundSize: '100% 100%' }
+          : ph.style === 'none'
+          ? {}
+          : ph.style === 'original'
+            ? { backgroundImage: `url(${BP}/sprites/PlaceHolder-f00.png)`, backgroundSize: '100% 100%' }
+            : ph.style === 'glass'
+              ? { background: withAlpha(ph.color, ph.opacity / 100), borderRadius: 36, border: '2px solid rgba(255,255,255,0.25)' }
+              : { background: withAlpha(ph.color, ph.opacity / 100), borderRadius: 36 };
+        const isDragging = drag?.slot === slot;
+        // clamp: le forme larghe si rimpiccioliscono per non toccare i vicini
+        const scale = p ? Math.min(1, 300 / (p.w * 89), 300 / (p.h * 89)) : 1;
+        return (
+          <div key={slot} data-bb-slot={slot} style={pos(X, 1600, 340, 340)}
+            onPointerDown={onPieceDown(slot)}>
+            {(ph.img || ph.style !== 'none') && <div style={{ position: 'absolute', inset: 0, ...holder }} />}
+            {p && !isDragging && (
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'grab' }}>
+                <div style={{ transform: `scale(${scale})` }}>
+                  <PieceView skin={skin} cells={p.cells} color={p.color} w={p.w} h={p.h} cellSize={89} />
                 </div>
-              )}
-            </div>
-          );
-        });
-      })()}
+              </div>
+            )}
+          </div>
+        );
+      })}
 
       {/* dragged piece follows the pointer, lifted like the original */}
       {drag && (
@@ -535,34 +551,69 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
         </div>
       )}
 
-      {/* pause overlay */}
-      {paused && !gameOver && (
+      {/* pause overlay — 1:1: pannello sprite originale + bottoni reference,
+          ciascuno col suo aspect naturale (niente icone schiacciate) */}
+      {paused && !gameOver && !ranking && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(3,5,16,0.55)', zIndex: 80 }}>
           <div style={pos(540, 960.5, 886, 1113)}>
             {skin.popup.style === 'original' ? (
-              <div style={{ position: 'absolute', inset: 0, backgroundImage: 'url(/sprites/PausePopup-f00.png)', backgroundSize: '100% 100%' }} />
+              <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${BP}/sprites/PausePopup-f00.png)`, backgroundSize: '100% 100%' }} />
             ) : (
               <PopupSurface skin={skin} w={886} h={1113} />
             )}
             <div style={relPos(899, 482, 80, 80, 540, 960.5, 886, 1113)}>
               <IconButtonView skin={skin} kind="close" size={80} group="game" onClick={() => setPaused(false)} />
             </div>
-            <div style={relPos(794, 654, 210, 100, 540, 960.5, 886, 1113)}>
-              <IconButtonView skin={skin} kind="sfx" size={100} variant="wide" group="settings" on={sfxOn} onClick={() => setSfxOn(!sfxOn)} />
+            <div style={relPos(794, 655, 165, 165, 540, 960.5, 886, 1113)}>
+              <IconButtonView skin={skin} kind="sfx" size={165} group="settings" on={sfxOn} onClick={() => setSfxOn(!sfxOn)} />
             </div>
-            <div style={relPos(794, 817, 210, 100, 540, 960.5, 886, 1113)}>
-              <IconButtonView skin={skin} kind="music" size={100} variant="wide" group="settings" on={musicOn}
+            <div style={relPos(794, 830, 165, 165, 540, 960.5, 886, 1113)}>
+              <IconButtonView skin={skin} kind="music" size={165} group="settings" on={musicOn}
                 onClick={() => {
                   if (musicOn) soundEngine.stopMusic();
                   else void soundEngine.startMusic(skin.sounds.music);
                   setMusicOn(!musicOn);
                 }} />
             </div>
-            <div style={relPos(761, 994, 282, 115, 540, 960.5, 886, 1113)}>
-              <IconButtonView skin={skin} kind="home" size={115} group="game" onClick={() => setPlaying(false)} />
+            <div style={relPos(761, 1005, 282, 115, 540, 960.5, 886, 1113)}>
+              <IconButtonView skin={skin} kind="home" size={115} w={282} group="game" onClick={() => setPlaying(false)} />
             </div>
-            <div style={relPos(761, 1164, 282, 116, 540, 960.5, 886, 1113)}>
-              <IconButtonView skin={skin} kind="reset" size={116} group="game" onClick={restart} />
+            <div style={relPos(761, 1175, 282, 116, 540, 960.5, 886, 1113)}>
+              <IconButtonView skin={skin} kind="reset" size={116} w={282} group="game" onClick={restart} />
+            </div>
+            <div style={relPos(761, 1345, 280, 114, 540, 960.5, 886, 1113)}>
+              <IconButtonView skin={skin} kind="showRanking" size={114} w={280} group="game" onClick={() => setRanking(true)} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ranking overlay (dal menu pausa) — popup originale con righe ItemBg */}
+      {ranking && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(3,5,16,0.55)', zIndex: 85 }}>
+          <div style={pos(540, 966.5, 928, 1535)}>
+            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${BP}/sprites/LeaderboardPopup2-f00.png)`, backgroundSize: '100% 100%' }} />
+            <div style={relPos(540, 283, 700, 110, 540, 966.5, 928, 1535)}>
+              <div style={{ ...fontCss('riffic', 72), color: '#212121', textAlign: 'center', letterSpacing: '0.08em', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                RANKING
+              </div>
+            </div>
+            {[...RANKING_ROWS, { name: 'Tu', score: Math.max(best, score) }].map((row, i) => {
+              const isYou = row.name === 'Tu';
+              return (
+                <div key={i} style={relPos(540, 490 + i * 120, 733, 103, 540, 966.5, 928, 1535)}>
+                  <img src={`${BP}/sprites/ItemBg-f0${isYou ? 1 : 0}.png`} alt="" draggable={false}
+                    style={{ width: '100%', height: '100%', objectFit: 'fill' }} />
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', padding: '0 44px', boxSizing: 'border-box' }}>
+                    <span style={{ ...fontCss('carlito', 40), color: '#212121', width: 64 }}>{i + 1}</span>
+                    <span style={{ ...fontCss('carlito', 40), color: '#212121', flex: 1 }}>{row.name}</span>
+                    <span style={{ ...fontCss('carlito', 40), color: '#212121' }}>{row.score.toLocaleString('it-IT')}</span>
+                  </div>
+                </div>
+              );
+            })}
+            <div style={relPos(918, 275, 89, 89, 540, 966.5, 928, 1535)}>
+              <IconButtonView skin={skin} kind="close" size={89} group="game" onClick={() => setRanking(false)} />
             </div>
           </div>
         </div>
@@ -635,7 +686,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(3,5,16,0.66)', zIndex: 90 }}>
           <div style={pos(540.2, 506.4, 940, 156)}>
             {skin.popup.style === 'original'
-              ? <div style={{ position: 'absolute', inset: 0, backgroundImage: 'url(/sprites/GameOver-f00.png)', backgroundSize: '100% 100%' }} />
+              ? <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${BP}/sprites/GameOver-f00.png)`, backgroundSize: '100% 100%' }} />
               : (
                 <PopupSurface skin={skin} w={940} h={156}>
                   <div
@@ -658,13 +709,12 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
             </div>
           </div>
           <div style={{ ...pos(540, 1113, 700, 90), ...fontCss('riffic', 58), color: '#FFF', letterSpacing: '0.12em', textAlign: 'center' }}>BEST SCORE</div>
-          <div style={pos(407.5, 1205.5, 140, 140)}>
-            <BestIconView skin={skin} size={147} />
+          <div style={pos(407.5, 1205.5, 136, 117)}>
+            <img src={`${BP}/sprites/CupIcon-f00.png`} alt="record" draggable={false}
+              style={{ width: '100%', height: '100%', objectFit: 'fill', display: 'block' }} />
           </div>
-          <div style={pos(560, 1223, 300, 64)}>
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center' }}>
-              <BestTextView skin={skin} value={Math.max(best, score)} />
-            </div>
+          <div style={{ position: 'absolute', left: 482, top: 1177, height: 92, display: 'flex', alignItems: 'center' }}>
+            <BestTextView skin={skin} value={Math.max(best, score)} align="left" />
           </div>
           <div style={pos(540.1, 1597.9, 510, 177)}>
             <GameOverResetButton skin={skin} onClick={restart} />
@@ -681,7 +731,7 @@ function GameOverResetButton({ skin, onClick }: { skin: SkinState; onClick: () =
     return (
       <div onClick={onClick} style={{ position: 'absolute', inset: 0, cursor: 'pointer' }}>
         { }
-        <img src="/sprites/BtnGOReset-f00.png" alt="Rigioca" draggable={false}
+        <img src={`${BP}/sprites/BtnGOReset-f00.png`} alt="Rigioca" draggable={false}
           style={{ width: '100%', height: '100%', objectFit: 'fill' }} />
       </div>
     );

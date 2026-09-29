@@ -635,17 +635,16 @@ function HomeScreen({
         <PlayButtonView skin={skin} onClick={onPlay} />
       </div>
 
-      {/* bottom icon row — 1:1 reference: sfx 204 · ranking 539 · music 882 @1664, disco 202 */}
-      <div style={{ position: 'absolute', left: 0, top: rowY - 101, width: 1080, height: 202 }}>
-        <div style={{ ...pos(204, 101, 202, 202) }}>
-          <IconButtonView skin={skin} kind="sfx" size={iconSize} group="home" on={sfxOn} onClick={onSfx} />
-        </div>
-        <div style={{ ...pos(539, 101, 202, 202) }}>
-          <IconButtonView skin={skin} kind="ranking" size={iconSize} group="home" onClick={onRanking} />
-        </div>
-        <div style={{ ...pos(882, 101, 202, 202) }}>
-          <IconButtonView skin={skin} kind="music" size={iconSize} group="home" on={musicOn} onClick={onMusic} />
-        </div>
+      {/* bottom icon row — 1:1 reference: sfx 204 · ranking 539 · music 882 @1664,
+          disco 251 (sprite naturale, nessuno scalato) */}
+      <div style={{ ...pos(204, rowY, iconSize, iconSize) }}>
+        <IconButtonView skin={skin} kind="sfx" size={iconSize} group="home" on={sfxOn} onClick={onSfx} />
+      </div>
+      <div style={{ ...pos(539, rowY, iconSize, iconSize) }}>
+        <IconButtonView skin={skin} kind="ranking" size={iconSize} group="home" onClick={onRanking} />
+      </div>
+      <div style={{ ...pos(882, rowY, iconSize, iconSize) }}>
+        <IconButtonView skin={skin} kind="music" size={iconSize} group="home" on={musicOn} onClick={onMusic} />
       </div>
 
       {rankOpen && <RankingPopup onClose={closeRanking} />}
