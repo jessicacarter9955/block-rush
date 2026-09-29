@@ -422,7 +422,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
           style={{ width: '100%', height: '100%', objectFit: 'fill', display: 'block' }} />
       </div>
       {/* best score — SOTTO la corona, centrato nella sua colonna */}
-      <div style={pos(114, 262, 320, 72)}>
+      <div style={pos(114, 275, 340, 130)}>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <BestTextView skin={skin} value={Math.max(best, score)} />
         </div>

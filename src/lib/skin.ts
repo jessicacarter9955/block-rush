@@ -723,9 +723,9 @@ export const BLOCK_RUSH_PRESET: PresetDef = {
       best: {
         font: 'luckiest',
         color: '#FDF303',
-        size: 120,
+        size: 250,
         stroke: '#5A1A66',
-        strokeWidth: 6,
+        strokeWidth: 7,
         glow: '#FFE94D',
         iconImg: null,
       },
