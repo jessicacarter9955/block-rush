@@ -15,25 +15,13 @@ import {
   Bot, CircleDot, Download, EyeOff, Film, Gauge, Maximize, Play, X,
 } from 'lucide-react';
 import {
-  BackgroundView, IconButtonView, LogoView, PlayButtonView, pos,
+  BackgroundView, IconButtonView, LogoView, PlayButtonView, RankingPanel, pos,
 } from '@/components/game/Kit';
 import { PlayGame } from '@/components/game/PlayGame';
 import { useStudio } from '@/lib/store';
 import { PRESETS, fontCss } from '@/lib/skin';
 import { soundEngine } from '@/lib/audio';
 import { BlockBlastBot, DEFAULT_MILESTONES, type BotEvent, type BotStats } from '@/lib/bot';
-
-const RANKING: { name: string; score: number }[] = [
-  { name: 'Kara', score: 1720 },
-  { name: 'Camila', score: 1586 },
-  { name: 'Philip', score: 1520 },
-  { name: 'Gianni', score: 1378 },
-  { name: 'Lya', score: 1250 },
-  { name: 'Ava', score: 1232 },
-  { name: 'Royce', score: 650 },
-  { name: 'Logan', score: 580 },
-  { name: 'Alexis', score: 200 },
-];
 
 function waitGameApi(timeoutMs = 5000): Promise<boolean> {
   return new Promise((res) => {
@@ -615,10 +603,10 @@ function HomeScreen({
   rankOpen: boolean; closeRanking: () => void;
 }) {
   const skin = useStudio((s) => s.skin);
-  const iconSize = skin.iconBtn.size ?? 170;
+  const iconSize = skin.iconBtn.size ?? 226;
   const logoY = skin.logo.y ?? 532;
-  const playY = skin.playBtn.y ?? 1295;
-  const rowY = skin.iconBtn.rowY ?? 1770;
+  const playY = skin.playBtn.y ?? 1315;
+  const rowY = skin.iconBtn.rowY ?? 1642;
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
       <BackgroundView skin={skin} variant="home" />
@@ -630,20 +618,19 @@ function HomeScreen({
         </div>
       )}
 
-      {/* play — patch 1:1 dal reference: 722×298 centrata a (533, 1319) */}
-      <div style={pos(533, playY, 722, 298)}>
+      {/* play — patch 1:1 dal reference: 682×282 (core 646×246) a (541,1315) */}
+      <div style={pos(541, playY, 682, 282)}>
         <PlayButtonView skin={skin} onClick={onPlay} />
       </div>
 
-      {/* bottom icon row — 1:1 reference: sfx 204 · ranking 539 · music 882 @1664,
-          disco 251 (sprite naturale, nessuno scalato) */}
-      <div style={{ ...pos(204, rowY, iconSize, iconSize) }}>
+      {/* bottom icon row — 1:1 reference: dischi 226px, centri x 205/550/896 y 1642 */}
+      <div style={{ ...pos(205, rowY, iconSize, iconSize) }}>
         <IconButtonView skin={skin} kind="sfx" size={iconSize} group="home" on={sfxOn} onClick={onSfx} />
       </div>
-      <div style={{ ...pos(539, rowY, iconSize, iconSize) }}>
+      <div style={{ ...pos(550, rowY, iconSize, iconSize) }}>
         <IconButtonView skin={skin} kind="ranking" size={iconSize} group="home" onClick={onRanking} />
       </div>
-      <div style={{ ...pos(882, rowY, iconSize, iconSize) }}>
+      <div style={{ ...pos(896, rowY, iconSize, iconSize) }}>
         <IconButtonView skin={skin} kind="music" size={iconSize} group="home" on={musicOn} onClick={onMusic} />
       </div>
 
@@ -654,54 +641,6 @@ function HomeScreen({
 
 function RankingPopup({ onClose }: { onClose: () => void }) {
   const skin = useStudio((s) => s.skin);
-  const rows: { name: string; score: number; you?: boolean }[] = [
-    ...RANKING.slice(0, 8),
-    { name: 'Tu', score: 0, you: true },
-  ];
-  return (
-    <div style={{ position: 'absolute', inset: 0, background: 'rgba(3,5,16,0.62)', zIndex: 50 }}>
-      <div style={pos(540, 960, 920, 1214)}>
-        <div
-          style={{
-            position: 'absolute', inset: 0, borderRadius: 40,
-            background: `linear-gradient(180deg, ${skin.popup.c1}, rgba(10,4,22,0.97))`,
-            border: '5px solid rgba(255,255,255,0.18)',
-            boxShadow: '0 30px 80px rgba(0,0,0,0.6)',
-          }}
-        />
-        <div style={{ ...pos(899, 424, 80, 80) }}>
-          <IconButtonView skin={skin} kind="close" size={80} group="game" onClick={onClose} />
-        </div>
-        <div
-          style={{
-            ...pos(540, 520, 800, 120), ...fontCss('riffic', 72),
-            color: '#FFFFFF', textAlign: 'center', letterSpacing: '0.08em',
-            textShadow: '0 0 24px rgba(255,215,0,0.5)',
-          }}
-        >
-          CLASSIFICA
-        </div>
-        <div style={{ position: 'absolute', left: 90, right: 90, top: 640, display: 'flex', flexDirection: 'column', gap: 18 }}>
-          {rows.map((r, i) => (
-            <div
-              key={r.name}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 28,
-                padding: '18px 34px', borderRadius: 26,
-                background: r.you ? 'rgba(255,201,77,0.16)' : 'rgba(255,255,255,0.06)',
-                border: r.you ? '4px solid rgba(255,201,77,0.65)' : '3px solid rgba(255,255,255,0.10)',
-              }}
-            >
-              <span style={{ ...fontCss('riffic', 46), color: i < 3 ? '#FFD700' : 'rgba(255,255,255,0.55)', width: 80 }}>
-                {i + 1}
-              </span>
-              <span style={{ ...fontCss('riffic', 46), color: '#FFFFFF', flex: 1 }}>{r.name}</span>
-              <span style={{ ...fontCss('riffic', 46), color: '#FFD700' }}>{r.score}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
+  return <RankingPanel skin={skin} onClose={onClose} best={0} />;
 }
 

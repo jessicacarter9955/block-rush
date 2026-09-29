@@ -8,9 +8,9 @@ import {
   useCallback, useEffect, useMemo, useRef, useState,
 } from 'react';
 import {
-  BackgroundView, BOARD, BestTextView, BoardFrameView, cellRect,
+  BackgroundView, BOARD, GRID as GRIDG, BestTextView, BoardFrameView, cellRect,
   ComboTextView, EmptyCellsView, IconButtonView, MaskIconView, PieceView,
-  Plus100View, PopupSurface, pos, relPos, ScoreTextView,
+  Plus100View, PopupSurface, RankingPanel, pos, relPos, ScoreTextView,
 } from '@/components/game/Kit';
 import { BlockTile } from '@/components/blocks/BlockTile';
 import {
@@ -321,10 +321,10 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
       const d = toDesign(e.clientX, e.clientY);
       setDrag((cur) => (cur ? { ...cur, x: d.x, y: d.y } : cur));
       const piece = drag.piece;
-      const tlx = d.x - (piece.w * 120) / 2;
-      const tly = (d.y - 200) - (piece.h * 120) / 2;
-      const c = Math.round((tlx - (BOARD.x - 480)) / 120);
-      const r = Math.round((tly - (BOARD.y - 480)) / 120);
+      const tlx = d.x - (piece.w * GRIDG.px) / 2;
+      const tly = (d.y - 200) - (piece.h * GRIDG.py) / 2;
+      const c = Math.round((tlx - BOARD.gridX) / GRIDG.px);
+      const r = Math.round((tly - BOARD.gridY) / GRIDG.py);
       if (r >= -1 && r <= GRID && c >= -1 && c <= GRID) {
         const valid = canPlace(boardRef.current, piece, r, c);
         const lines = valid ? previewLines(boardRef.current, piece, r, c) : { rows: [], cols: [] };
@@ -336,10 +336,10 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
     const up = (e: PointerEvent) => {
       const d = toDesign(e.clientX, e.clientY);
       const piece = drag.piece;
-      const tlx = d.x - (piece.w * 120) / 2;
-      const tly = (d.y - 200) - (piece.h * 120) / 2;
-      const c = Math.round((tlx - (BOARD.x - 480)) / 120);
-      const r = Math.round((tly - (BOARD.y - 480)) / 120);
+      const tlx = d.x - (piece.w * GRIDG.px) / 2;
+      const tly = (d.y - 200) - (piece.h * GRIDG.py) / 2;
+      const c = Math.round((tlx - BOARD.gridX) / GRIDG.px);
+      const r = Math.round((tly - BOARD.gridY) / GRIDG.py);
       if (canPlace(boardRef.current, piece, r, c)) {
         doPlace(drag.slot, r, c);
       } else {
@@ -411,28 +411,29 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
           <MaskIconView sprite="Heart-f00.png" color={skin.effects.comboGlow} size={240} glow={30} />
         </div>
       )}
-      <div style={pos(540, 243, 700, 200)}>
+      <div style={pos(540, 254, 700, 220)}>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <ScoreTextView skin={skin} value={scoreShown} animateKey={score} />
         </div>
       </div>
-      {/* crown patch pulita (solo corona, sfondo rimosso, aspect naturale) */}
-      <div style={pos(111, 107, 158, 136)}>
-        <img src={`${BP}/sprites/CupIcon-f00.png`} alt="record" draggable={false}
+      {/* crown — patch 1:1 pulita dal reference (solo corona, niente cifra) */}
+      <div style={pos(114, 131.5, 140, 125)}>
+        <img src={`${BP}/textures/rush/crown.png`} alt="record" draggable={false}
           style={{ width: '100%', height: '100%', objectFit: 'fill', display: 'block' }} />
       </div>
       {/* best score — SOTTO la corona, centrato nella sua colonna */}
-      <div style={pos(111, 258, 320, 72)}>
+      <div style={pos(114, 262, 320, 72)}>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <BestTextView skin={skin} value={Math.max(best, score)} />
         </div>
       </div>
-      <div style={pos(981, 115, 185, 185)}>
-        <IconButtonView skin={skin} kind="pause" size={185} group="game" onClick={() => { setPaused(true); if (sfxOn) soundEngine.playEvent(skin.sounds.button); }} />
+      {/* pause — patch 1:1 dal reference: squircle viola a (951,130) */}
+      <div style={pos(951, 130, 123, 123)}>
+        <IconButtonView skin={skin} kind="pause" size={123} group="game" onClick={() => { setPaused(true); if (sfxOn) soundEngine.playEvent(skin.sounds.button); }} />
       </div>
 
-      {/* board */}
-      <div style={pos(BOARD.x, BOARD.y, BOARD.size, BOARD.size)}>
+      {/* board — container = area griglia 1:1 (74.5,385)-(1001,1328.5) */}
+      <div style={pos(BOARD.x, BOARD.y, BOARD.size, BOARD.h)}>
         <BoardFrameView skin={skin} />
         <EmptyCellsView skin={skin} />
         {board.map((v, i) => {
@@ -441,7 +442,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
           return (
             <div key={i} style={cellRect(r, c)}>
               <BlockTile colorIdx={v} color={skin.blocks.colors[v]} style={skin.blocks.style}
-                size={120} radius={skin.blocks.radius} gap={skin.blocks.gap} border={skin.blocks.border}
+                size={GRIDG.px} sizeH={GRIDG.py} radius={skin.blocks.radius} gap={skin.blocks.gap} border={skin.blocks.border}
                 imgSrc={blockImgTile(skin, v)} imgTint={skin.blocks.img?.tint}
                 imgFit={skin.blocks.img?.fit} imgShadow={skin.blocks.img?.shadow} />
             </div>
@@ -460,7 +461,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
         {ghostCells.map(([r, c], i) => (
           <div key={`g-${i}`} style={cellRect(r, c)}>
             <BlockTile colorIdx={drag!.piece.color} color={skin.blocks.colors[drag!.piece.color]}
-              style={skin.blocks.style} size={120} radius={skin.blocks.radius} gap={skin.blocks.gap}
+              style={skin.blocks.style} size={GRIDG.px} sizeH={GRIDG.py} radius={skin.blocks.radius} gap={skin.blocks.gap}
               border={skin.blocks.border} ghost={skin.ghost.style} ghostOpacity={skin.ghost.opacity}
               imgSrc={blockImgTile(skin, drag!.piece.color)} imgTint={skin.blocks.img?.tint}
               imgFit={skin.blocks.img?.fit} imgShadow={0} />
@@ -526,7 +527,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
               : { background: withAlpha(ph.color, ph.opacity / 100), borderRadius: 36 };
         const isDragging = drag?.slot === slot;
         // clamp: le forme larghe si rimpiccioliscono per non toccare i vicini
-        const scale = p ? Math.min(1, 300 / (p.w * 89), 300 / (p.h * 89)) : 1;
+        const scale = p ? Math.min(1, 310 / (p.w * 89), 310 / (p.h * 89)) : 1;
         return (
           <div key={slot} data-bb-slot={slot} style={pos(X, 1600, 340, 340)}
             onPointerDown={onPieceDown(slot)}>
@@ -542,81 +543,69 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
         );
       })}
 
-      {/* dragged piece follows the pointer, lifted like the original */}
+      {/* dragged piece follows the pointer, lifted like the original.
+          1:1 col reference: il pezzo resta della STESSA dimensione che ha nel
+          vassoio (niente ingrandimento alla presa) — il ghost sulla board
+          mostra l'atterraggio a scala piena. */}
       {drag && (
         <div style={{ ...pos(drag.x, drag.y - 200, 600, 600), pointerEvents: 'none', zIndex: 60 }}>
           <div style={{ position: 'absolute', left: 300, top: 300, transform: 'translate(-50%,-50%)' }}>
-            <PieceView skin={skin} cells={drag.piece.cells} color={drag.piece.color} w={drag.piece.w} h={drag.piece.h} cellSize={120} />
+            {(() => {
+              const p = drag.piece;
+              const s = Math.min(1, 310 / (p.w * 89), 310 / (p.h * 89));
+              return (
+                <div style={{ transform: `scale(${s})` }}>
+                  <PieceView skin={skin} cells={p.cells} color={p.color} w={p.w} h={p.h} cellSize={89} />
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
 
-      {/* pause overlay — 1:1: pannello sprite originale + bottoni reference,
-          ciascuno col suo aspect naturale (niente icone schiacciate) */}
+      {/* pause overlay — pannello purple candy (palette reference), layout
+          centrato: titolo, toggle suono/musica (patch 1:1), pillole CSS */}
       {paused && !gameOver && !ranking && (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(3,5,16,0.55)', zIndex: 80 }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(3,5,16,0.62)', zIndex: 80 }}>
           <div style={pos(540, 960.5, 886, 1113)}>
-            {skin.popup.style === 'original' ? (
-              <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${BP}/sprites/PausePopup-f00.png)`, backgroundSize: '100% 100%' }} />
-            ) : (
-              <PopupSurface skin={skin} w={886} h={1113} />
-            )}
+            <PopupSurface skin={skin} w={886} h={1113} />
+            {/* close */}
             <div style={relPos(899, 482, 80, 80, 540, 960.5, 886, 1113)}>
               <IconButtonView skin={skin} kind="close" size={80} group="game" onClick={() => setPaused(false)} />
             </div>
-            <div style={relPos(794, 655, 165, 165, 540, 960.5, 886, 1113)}>
-              <IconButtonView skin={skin} kind="sfx" size={165} group="settings" on={sfxOn} onClick={() => setSfxOn(!sfxOn)} />
+            {/* title */}
+            <div style={{ ...relPos(540, 620, 700, 130, 540, 960.5, 886, 1113), ...fontCss('riffic', 92), color: '#FFFFFF', textAlign: 'center', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', justifyContent: 'center', textShadow: '0 6px 0 rgba(0,0,0,0.35)' }}>
+              PAUSA
             </div>
-            <div style={relPos(794, 830, 165, 165, 540, 960.5, 886, 1113)}>
-              <IconButtonView skin={skin} kind="music" size={165} group="settings" on={musicOn}
+            {/* toggles: sfx + music (patch 1:1 estratte dal reference) */}
+            <div style={relPos(420, 800, 190, 190, 540, 960.5, 886, 1113)}>
+              <IconButtonView skin={skin} kind="sfx" size={190} group="settings" on={sfxOn} onClick={() => setSfxOn(!sfxOn)} />
+            </div>
+            <div style={relPos(660, 800, 190, 190, 540, 960.5, 886, 1113)}>
+              <IconButtonView skin={skin} kind="music" size={190} group="settings" on={musicOn}
                 onClick={() => {
                   if (musicOn) soundEngine.stopMusic();
                   else void soundEngine.startMusic(skin.sounds.music);
                   setMusicOn(!musicOn);
                 }} />
             </div>
-            <div style={relPos(761, 1005, 282, 115, 540, 960.5, 886, 1113)}>
-              <IconButtonView skin={skin} kind="home" size={115} w={282} group="game" onClick={() => setPlaying(false)} />
+            {/* pills */}
+            <div style={relPos(540, 1022, 560, 132, 540, 960.5, 886, 1113)}>
+              <PausePill label="RIGIOCA" onClick={restart} />
             </div>
-            <div style={relPos(761, 1175, 282, 116, 540, 960.5, 886, 1113)}>
-              <IconButtonView skin={skin} kind="reset" size={116} w={282} group="game" onClick={restart} />
+            <div style={relPos(540, 1180, 560, 132, 540, 960.5, 886, 1113)}>
+              <PausePill label="CLASSIFICA" onClick={() => setRanking(true)} />
             </div>
-            <div style={relPos(761, 1345, 280, 114, 540, 960.5, 886, 1113)}>
-              <IconButtonView skin={skin} kind="showRanking" size={114} w={280} group="game" onClick={() => setRanking(true)} />
+            <div style={relPos(540, 1338, 560, 132, 540, 960.5, 886, 1113)}>
+              <PausePill label="HOME" onClick={() => setPlaying(false)} />
             </div>
           </div>
         </div>
       )}
 
-      {/* ranking overlay (dal menu pausa) — popup originale con righe ItemBg */}
+      {/* ranking overlay (dal menu pausa) — stesso pannello candy della home */}
       {ranking && (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(3,5,16,0.55)', zIndex: 85 }}>
-          <div style={pos(540, 966.5, 928, 1535)}>
-            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${BP}/sprites/LeaderboardPopup2-f00.png)`, backgroundSize: '100% 100%' }} />
-            <div style={relPos(540, 283, 700, 110, 540, 966.5, 928, 1535)}>
-              <div style={{ ...fontCss('riffic', 72), color: '#212121', textAlign: 'center', letterSpacing: '0.08em', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                RANKING
-              </div>
-            </div>
-            {[...RANKING_ROWS, { name: 'Tu', score: Math.max(best, score) }].map((row, i) => {
-              const isYou = row.name === 'Tu';
-              return (
-                <div key={i} style={relPos(540, 490 + i * 120, 733, 103, 540, 966.5, 928, 1535)}>
-                  <img src={`${BP}/sprites/ItemBg-f0${isYou ? 1 : 0}.png`} alt="" draggable={false}
-                    style={{ width: '100%', height: '100%', objectFit: 'fill' }} />
-                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', padding: '0 44px', boxSizing: 'border-box' }}>
-                    <span style={{ ...fontCss('carlito', 40), color: '#212121', width: 64 }}>{i + 1}</span>
-                    <span style={{ ...fontCss('carlito', 40), color: '#212121', flex: 1 }}>{row.name}</span>
-                    <span style={{ ...fontCss('carlito', 40), color: '#212121' }}>{row.score.toLocaleString('it-IT')}</span>
-                  </div>
-                </div>
-              );
-            })}
-            <div style={relPos(918, 275, 89, 89, 540, 966.5, 928, 1535)}>
-              <IconButtonView skin={skin} kind="close" size={89} group="game" onClick={() => setRanking(false)} />
-            </div>
-          </div>
-        </div>
+        <RankingPanel skin={skin} onClose={() => setRanking(false)} best={Math.max(best, score)} />
       )}
 
       {/* revive popup (original "Revive" layer: watch ad & continue) */}
@@ -751,6 +740,27 @@ function GameOverResetButton({ skin, onClick }: { skin: SkinState; onClick: () =
     >
       <span style={{ ...fontCss('riffic', 84), color: skin.playBtn.textColor, letterSpacing: '0.08em', textShadow: '0 4px 0 rgba(0,0,0,0.3)' }}>
         RIGIOCA
+      </span>
+    </div>
+  );
+}
+
+/** Pill candy per il menu pausa — viola reference, bordo chiaro, gloss. */
+function PausePill({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        position: 'absolute', inset: 0, cursor: 'pointer',
+        borderRadius: 999, boxSizing: 'border-box',
+        background: 'linear-gradient(180deg, #9F6BFF 0%, #7038E8 55%, #5B2BD0 100%)',
+        border: '4px solid rgba(255,255,255,0.5)',
+        boxShadow: '0 12px 30px rgba(20,8,60,0.55), inset 0 6px 14px rgba(255,255,255,0.35), inset 0 -8px 16px rgba(30,10,90,0.55)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <span style={{ ...fontCss('riffic', 62), color: '#FFFFFF', letterSpacing: '0.08em', textShadow: '0 4px 0 rgba(40,15,110,0.65)' }}>
+        {label}
       </span>
     </div>
   );

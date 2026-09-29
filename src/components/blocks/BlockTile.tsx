@@ -12,7 +12,8 @@ export interface BlockTileProps {
   colorIdx: number;
   color: string;
   style: BlockStyleId;
-  size: number;        // design px
+  size: number;        // design px (width)
+  sizeH?: number;      // design px height (defaults to size — non-square tiles)
   radius?: number;     // % override
   gap?: number;        // design px inset
   border?: number;     // design px
@@ -28,15 +29,16 @@ export interface BlockTileProps {
 
 export function blockTileCss(props: BlockTileProps): CSSProperties {
   const {
-    colorIdx, color, style, size, radius = 8, gap = 4,
+    colorIdx, color, style, size, sizeH, radius = 8, gap = 4,
     border = 3, ghost = 'none', ghostOpacity = 45,
     imgSrc = null, imgTint = false, imgFit = 'fill', imgShadow = 35,
   } = props;
+  const sh = sizeH ?? size;
   const r = (radius / 100) * size;
   const isOriginalColor = ORIGINAL_COLORS[colorIdx]?.toUpperCase() === color.toUpperCase();
 
   const base: CSSProperties = {
-    width: size, height: size, borderRadius: r, position: 'relative',
+    width: size, height: sh, borderRadius: r, position: 'relative',
     boxSizing: 'border-box',
   };
 
@@ -195,20 +197,22 @@ export function blockTileCss(props: BlockTileProps): CSSProperties {
 }
 
 export function BlockTile(props: BlockTileProps) {
-  const { gap = 0, size } = props;
+  const { gap = 0, size, sizeH } = props;
+  const sh = sizeH ?? size;
   const css = blockTileCss(props);
   if (gap > 0) {
     const inner = size - gap;
+    const innerH = sh - gap;
     const rr = typeof css.borderRadius === 'number' ? css.borderRadius : 0;
     return (
       <div
         className={props.className}
         style={{
-          width: size, height: size,
+          width: size, height: sh,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}
       >
-        <div style={{ ...css, width: inner, height: inner, borderRadius: rr * (inner / size) }} />
+        <div style={{ ...css, width: inner, height: innerH, borderRadius: rr * (inner / size) }} />
       </div>
     );
   }

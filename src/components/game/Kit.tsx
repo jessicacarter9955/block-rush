@@ -143,7 +143,22 @@ export function BackgroundView({ skin, variant = 'game' }: { skin: SkinState; va
 
 // ----------------------------------------------------------------- board ---
 
-export const BOARD = { x: 532, y: 854, size: 1000, cell: 120, originX: 112, originY: 434 };
+// Geometria 1:1 misurata dai reference: la griglia (slot 0,0) parte a
+// (74.5, 385) in coordinate design; slot 115.8125 x 117.9375; il frame
+// completo (bordo neon + interno) occupa (26,343)-(1045,1374).
+export const GRID = { x0: 74.5, y0: 385, px: 115.8125, py: 117.9375, n: 8 };
+// board container == area della griglia (per cellRect); il frame sborda con frameRect
+export const BOARD = {
+  x: GRID.x0 + (GRID.px * GRID.n) / 2,   // 537.75
+  y: GRID.y0 + (GRID.py * GRID.n) / 2,   // 856.75
+  size: GRID.px * GRID.n,                // 926.5 (w)
+  h: GRID.py * GRID.n,                   // 943.5 (h)
+  cell: GRID.px,
+  gridX: GRID.x0,
+  gridY: GRID.y0,
+  originX: GRID.x0,
+  originY: GRID.y0,
+};
 
 export function BoardFrameView({ skin }: { skin: SkinState }) {
   const b = skin.board;
@@ -156,7 +171,7 @@ export function BoardFrameView({ skin }: { skin: SkinState }) {
   if (b.style === 'image' && b.img) {
     // Frame 1:1: rettangolo (di default 1086×1086 a offset -43) oppure esplicito
     // via board.frameRect (board COMPLETO col interno: interiorBaked).
-    const fr = b.frameRect ?? { left: -43, top: -43, w: 1086, h: 1086 };
+    const fr = b.frameRect ?? { left: -48.5, top: -42, w: 1019, h: 1031 };
     return (
       <div
         style={{
@@ -230,12 +245,16 @@ export function BoardFrameView({ skin }: { skin: SkinState }) {
   );
 }
 
-/** Cell (r,c) rect inside the 1000×1000 board container. */
-export function cellRect(r: number, c: number, size = 120): CSSProperties {
-  const off = 20 + (120 - size) / 2;
+/** Slot (r,c) rect inside the board container (= grid area).
+ *  `size` scala il contenuto dentro lo slot (default: slot pieno — la tile
+ *  contiene già blocchi + separatori estratti 1:1 dal reference). */
+export function cellRect(r: number, c: number, size = 1): CSSProperties {
+  const w = GRID.px * size, h = GRID.py * size;
   return {
     position: 'absolute',
-    left: off + c * 120, top: off + r * 120, width: size, height: size,
+    left: c * GRID.px + (GRID.px - w) / 2,
+    top: r * GRID.py + (GRID.py - h) / 2,
+    width: w, height: h,
   };
 }
 
@@ -251,7 +270,7 @@ export function EmptyCellsView({ skin }: { skin: SkinState }) {
         <div
           key={`${r}-${c}`}
           style={{
-            ...cellRect(r, c, b.cellImg ? 120 : 112),
+            ...cellRect(r, c, b.cellImg ? 1 : 0.93),
             borderRadius: skin.board.radius,
             ...(b.cellImg
               ? {
@@ -636,14 +655,16 @@ export function IconButtonView({
 export function PlayButtonView({ skin, onClick }: { skin: SkinState; onClick?: () => void }) {
   const p = skin.playBtn;
   if (p.img) {
-    // Bottone 1:1 estratto dal reference (patch opaca 722×298 con margine+feather)
-    const bw = 722 * (p.size / 100);
-    const bh = 298 * (p.size / 100);
+    // Bottone 1:1 estratto dal reference (patch con alpha pulita, 682×282,
+    // core 646×246 centrato — il patch include il glow che sfuma).
+    const PW = 682, PH = 282;
+    const bw = PW * (p.size / 100);
+    const bh = PH * (p.size / 100);
     return (
-      <div onClick={onClick} style={{ position: 'relative', width: 722, height: 298, cursor: 'pointer' }}>
+      <div onClick={onClick} style={{ position: 'relative', width: PW, height: PH, cursor: 'pointer' }}>
         <img src={p.img} alt="play" draggable={false}
           style={{
-            position: 'absolute', left: (722 - bw) / 2, top: (298 - bh) / 2,
+            position: 'absolute', left: (PW - bw) / 2, top: (PH - bh) / 2,
             width: bw, height: bh, objectFit: 'fill',
           }} />
       </div>
@@ -981,5 +1002,77 @@ export function MaskIconView({
         ...style,
       }}
     />
+  );
+}
+
+// ---------------------------------------------------------------- ranking ---
+
+export const RANKING_LIST: { name: string; score: number }[] = [
+  { name: 'Kara', score: 1720 },
+  { name: 'Camila', score: 1586 },
+  { name: 'Philip', score: 1520 },
+  { name: 'Gianni', score: 1378 },
+  { name: 'Lya', score: 1250 },
+  { name: 'Ava', score: 1232 },
+  { name: 'Royce', score: 650 },
+  { name: 'Logan', score: 580 },
+];
+
+/** Classifica candy viola condivisa (home + menu pausa) — palette reference. */
+export function RankingPanel({
+  skin, onClose, best,
+}: {
+  skin: SkinState; onClose: () => void; best: number;
+}) {
+  const rows = [...RANKING_LIST, { name: 'Tu', score: best, you: true }];
+  const medal = (i: number) => (i === 0 ? '#FFD54A' : i === 1 ? '#D7DCE8' : i === 2 ? '#E8A05C' : null);
+  return (
+    <div style={{ position: 'absolute', inset: 0, background: 'rgba(3,5,16,0.66)', zIndex: 85 }}>
+      <div style={pos(540, 940, 920, 1400)}>
+        <PopupSurface skin={skin} w={920} h={1400} />
+        <div style={pos(460, 350, 116, 116)}>
+          <MaskIconView sprite="CupIcon-f00.png" color="#F3BF08" size={116} glow={26} glowColor="#FFE066" />
+        </div>
+        <div style={{ ...pos(460, 492, 800, 150), ...fontCss('riffic', 84), color: '#FFFFFF', textAlign: 'center', letterSpacing: '0.1em', textShadow: '0 0 30px rgba(159,107,255,0.85), 0 6px 0 rgba(0,0,0,0.35)' }}>
+          CLASSIFICA
+        </div>
+        <div style={pos(850, 315, 80, 80)}>
+          <IconButtonView skin={skin} kind="close" size={80} group="game" onClick={onClose} />
+        </div>
+        <div style={{ position: 'absolute', left: 64, right: 64, top: 592, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {rows.map((r, i) => {
+            const m = medal(i);
+            const you = 'you' in r && r.you;
+            return (
+              <div
+                key={r.name}
+                style={{
+                  position: 'relative',
+                  display: 'flex', alignItems: 'center', gap: 24,
+                  padding: '10px 28px', borderRadius: 22, boxSizing: 'border-box',
+                  background: you
+                    ? 'linear-gradient(180deg, rgba(255,213,74,0.28), rgba(255,160,60,0.16))'
+                    : 'linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.05))',
+                  border: you
+                    ? '3px solid rgba(255,201,77,0.75)'
+                    : m ? `3px solid ${m}55` : '3px solid rgba(255,255,255,0.12)',
+                  boxShadow: you ? '0 0 26px rgba(255,201,77,0.35)' : 'inset 0 2px 8px rgba(255,255,255,0.06)',
+                }}
+              >
+                <span style={{
+                  ...fontCss('riffic', 42), width: 68, textAlign: 'center', lineHeight: 1.05,
+                  color: m ?? 'rgba(255,255,255,0.55)',
+                  textShadow: m ? `0 0 16px ${m}88` : undefined,
+                }}>
+                  {i + 1}
+                </span>
+                <span style={{ ...fontCss('riffic', 42), color: '#FFFFFF', flex: 1, lineHeight: 1.05, textShadow: '0 3px 0 rgba(0,0,0,0.3)' }}>{r.name}</span>
+                <span style={{ ...fontCss('riffic', 42), color: m ?? '#FFD54A', lineHeight: 1.05, textShadow: '0 3px 0 rgba(0,0,0,0.3)' }}>{r.score.toLocaleString('it-IT')}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
   );
 }
