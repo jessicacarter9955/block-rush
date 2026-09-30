@@ -656,7 +656,9 @@ export const BLOCK_RUSH_PRESET: PresetDef = {
         // Ritaglio ref (10,285)-(930,1195) mappato sulle celle app (scala 1.2 h / 1.168 v):
         // rect relativo al container 1000x1000 = (-45, -35, 1104, 1063).
         interiorBaked: true,
-        frameRect: { left: -45, top: -35, w: 1104, h: 1063 },
+        // frame.png 1:1 (26,343)-(1045,1374) design; container = griglia
+        // (74.5,385)-(1001,1328.5) → offset relativo:
+        frameRect: { left: -48.5, top: -42, w: 1019, h: 1031 },
       },
       tray: { style: 'none', color: '#0A1755', opacity: 100, img: null },
       playBtn: {
@@ -668,19 +670,30 @@ export const BLOCK_RUSH_PRESET: PresetDef = {
         glow: 30,
         img: `${BP}/textures/rush/play.png`,
         size: 100,
-        y: 1319,
+        y: 1315,
       },
       iconBtn: {
-        style: 'original',
-        bg: '#2E1B5E',
+        style: 'rounded',
+        bg: '#4A32B8',
         iconColor: '#FFFFFF',
         variants: { home: 'base', game: 'base', settings: 'base' },
         img: null,
-        imgs: {},
-        size: 251,
-        rowY: 1664,
+        imgs: {
+          sfx: `${BP}/textures/rush/btn-sfx.png`,
+          ranking: `${BP}/textures/rush/btn-ranking.png`,
+          music: `${BP}/textures/rush/btn-music.png`,
+          pause: `${BP}/textures/rush/btn-pause.png`,
+        },
+        imgsOff: {
+          sfx: `${BP}/textures/rush/btn-sfx-off.png`,
+          music: `${BP}/textures/rush/btn-music-off.png`,
+        },
+        // frazione del canvas occupata dal disco/squircle nei patch estratti
+        imgScale: { sfx: 0.782, ranking: 0.775, music: 0.777, pause: 0.79 },
+        size: 226,
+        rowY: 1642,
       },
-      popup: { style: 'original', c1: '#2E1B5E' },
+      popup: { style: 'dark', c1: '#3D2A85' },
       logo: {
         style: 'image',
         text: 'BLOCK RUSH',
@@ -702,17 +715,17 @@ export const BLOCK_RUSH_PRESET: PresetDef = {
         color: '#FFFFFF',
         c2: '#E9FDFF',
         gradient: false,
-        stroke: '#0A2BB0',
-        strokeWidth: 12,
-        size: 140,
-        glow: '#6FD8FF',
+        stroke: '#1D4FE8',
+        strokeWidth: 15,
+        size: 165,
+        glow: '#4D9BFF',
       },
       best: {
         font: 'luckiest',
         color: '#FDF303',
-        size: 120,
+        size: 250,
         stroke: '#5A1A66',
-        strokeWidth: 6,
+        strokeWidth: 7,
         glow: '#FFE94D',
         iconImg: null,
       },

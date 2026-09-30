@@ -288,15 +288,17 @@ function fire(target: Element | Window, type: string, clientX: number, clientY: 
   target.dispatchEvent(ev);
 }
 
-const TRAY_X = [196.5, 539.5, 883.5];
-const TRAY_Y = 1626;
+const TRAY_X = [190, 540, 890];
+const TRAY_Y = 1600;
 const LIFT = 200;
+// griglia 1:1 misurata dal reference (vedi Kit.GRID)
+const GX0 = 74.5, GY0 = 385, GPX = 115.8125, GPY = 117.9375;
 
 /** Pointer position (design coords) that drops the piece at (r,c). */
 function dropPoint(p: Piece, r: number, c: number) {
   return {
-    x: 60 + c * 120 + (p.w * 120) / 2,
-    y: 351 + r * 120 + (p.h * 120) / 2 + LIFT,
+    x: GX0 + c * GPX + (p.w * GPX) / 2,
+    y: GY0 + r * GPY + (p.h * GPY) / 2 + LIFT,
   };
 }
 

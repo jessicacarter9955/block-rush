@@ -8,7 +8,7 @@ import {
   useCallback, useEffect, useMemo, useRef, useState,
 } from 'react';
 import {
-  BackgroundView, BOARD, BestTextView, BoardFrameView, cellRect,
+  BackgroundView, BOARD, GRID as GRIDG, BestTextView, BoardFrameView, cellRect,
   ComboTextView, EmptyCellsView, IconButtonView, MaskIconView, PieceView,
   Plus100View, PopupSurface, pos, relPos, ScoreTextView,
 } from '@/components/game/Kit';
@@ -184,14 +184,14 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
       const color = colors[Math.min(63, Math.max(0, r * GRID))] ?? skinRef.effects.flashColor;
       for (let i = 0; i < 14; i++) {
         const dir = i % 2 === 0 ? 1 : -1;
-        out.push(mk(BOARD.originX + Math.random() * 840, BOARD.originY + r * 120, dir * (260 + Math.random() * 300), (Math.random() - 0.5) * 220, skinRef.blocks.colors[color as number] ?? '#FFFFFF'));
+        out.push(mk(BOARD.originX + Math.random() * 840, BOARD.originY + (r + 0.5) * GRIDG.py, dir * (260 + Math.random() * 300), (Math.random() - 0.5) * 220, skinRef.blocks.colors[color as number] ?? '#FFFFFF'));
       }
     }
     for (const c of cols) {
       for (let i = 0; i < 14; i++) {
         const dir = i % 2 === 0 ? 1 : -1;
         const rr = Math.floor(Math.random() * 8);
-        out.push(mk(BOARD.originX + c * 120, BOARD.originY + rr * 120, (Math.random() - 0.5) * 220, dir * (260 + Math.random() * 300), skinRef.blocks.colors[colors[rr * GRID + c] ?? 0] ?? '#FFFFFF'));
+        out.push(mk(BOARD.originX + (c + 0.5) * GRIDG.px, BOARD.originY + (rr + 0.5) * GRIDG.py, (Math.random() - 0.5) * 220, dir * (260 + Math.random() * 300), skinRef.blocks.colors[colors[rr * GRID + c] ?? 0] ?? '#FFFFFF'));
       }
     }
     void cleared;
@@ -239,7 +239,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
       if (sfxOn) soundEngine.playClear(skin.sounds.clear, comboAfter);
       if (nLines >= 2 && sfxOn) soundEngine.playCheer(skin.sounds.cheer, nLines);
 
-      const cy = 434 + (r + p.h / 2) * 120;
+      const cy = BOARD.gridY + (r + p.h / 2) * GRIDG.py;
       if (comboAfter >= 1) {
         // COMBO badge fisso al centro della board (come il reference);
         // il popup +N ha la sua corsia, così i due non si sovrappongono mai.
@@ -339,10 +339,10 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
       const d = toDesign(e.clientX, e.clientY);
       setDrag((cur) => (cur ? { ...cur, x: d.x, y: d.y } : cur));
       const piece = drag.piece;
-      const tlx = d.x - (piece.w * 120) / 2;
-      const tly = (d.y - 200) - (piece.h * 120) / 2;
-      const c = Math.round((tlx - (BOARD.x - 480)) / 120);
-      const r = Math.round((tly - (BOARD.y - 480)) / 120);
+      const tlx = d.x - (piece.w * GRIDG.px) / 2;
+      const tly = (d.y - 200) - (piece.h * GRIDG.py) / 2;
+      const c = Math.round((tlx - BOARD.gridX) / GRIDG.px);
+      const r = Math.round((tly - BOARD.gridY) / GRIDG.py);
       if (r >= -1 && r <= GRID && c >= -1 && c <= GRID) {
         const valid = canPlace(boardRef.current, piece, r, c);
         const lines = valid ? previewLines(boardRef.current, piece, r, c) : { rows: [], cols: [] };
@@ -354,10 +354,10 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
     const up = (e: PointerEvent) => {
       const d = toDesign(e.clientX, e.clientY);
       const piece = drag.piece;
-      const tlx = d.x - (piece.w * 120) / 2;
-      const tly = (d.y - 200) - (piece.h * 120) / 2;
-      const c = Math.round((tlx - (BOARD.x - 480)) / 120);
-      const r = Math.round((tly - (BOARD.y - 480)) / 120);
+      const tlx = d.x - (piece.w * GRIDG.px) / 2;
+      const tly = (d.y - 200) - (piece.h * GRIDG.py) / 2;
+      const c = Math.round((tlx - BOARD.gridX) / GRIDG.px);
+      const r = Math.round((tly - BOARD.gridY) / GRIDG.py);
       if (canPlace(boardRef.current, piece, r, c)) {
         doPlace(drag.slot, r, c);
       } else {
@@ -449,7 +449,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
       </div>
 
       {/* board */}
-      <div style={pos(BOARD.x, BOARD.y, BOARD.size, BOARD.size)}>
+      <div style={pos(BOARD.x, BOARD.y, BOARD.size, BOARD.h)}>
         <BoardFrameView skin={skin} />
         <EmptyCellsView skin={skin} />
         {board.map((v, i) => {
@@ -458,7 +458,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
           return (
             <div key={i} style={cellRect(r, c)}>
               <BlockTile colorIdx={v} color={skin.blocks.colors[v]} style={skin.blocks.style}
-                size={120} radius={skin.blocks.radius} gap={skin.blocks.gap} border={skin.blocks.border}
+                size={GRIDG.px} sizeH={GRIDG.py} radius={skin.blocks.radius} gap={skin.blocks.gap} border={skin.blocks.border}
                 imgSrc={blockImgTile(skin, v)} imgTint={skin.blocks.img?.tint}
                 imgFit={skin.blocks.img?.fit} imgShadow={skin.blocks.img?.shadow} />
             </div>
@@ -477,7 +477,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
         {ghostCells.map(([r, c], i) => (
           <div key={`g-${i}`} style={cellRect(r, c)}>
             <BlockTile colorIdx={drag!.piece.color} color={skin.blocks.colors[drag!.piece.color]}
-              style={skin.blocks.style} size={120} radius={skin.blocks.radius} gap={skin.blocks.gap}
+              style={skin.blocks.style} size={GRIDG.px} sizeH={GRIDG.py} radius={skin.blocks.radius} gap={skin.blocks.gap}
               border={skin.blocks.border} ghost={skin.ghost.style} ghostOpacity={skin.ghost.opacity}
               imgSrc={blockImgTile(skin, drag!.piece.color)} imgTint={skin.blocks.img?.tint}
               imgFit={skin.blocks.img?.fit} imgShadow={0} />
@@ -564,7 +564,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
       {drag && (
         <div style={{ ...pos(drag.x, drag.y - 200, 600, 600), pointerEvents: 'none', zIndex: 60 }}>
           <div style={{ position: 'absolute', left: 300, top: 300, transform: 'translate(-50%,-50%)' }}>
-            <PieceView skin={skin} cells={drag.piece.cells} color={drag.piece.color} w={drag.piece.w} h={drag.piece.h} cellSize={120} />
+            <PieceView skin={skin} cells={drag.piece.cells} color={drag.piece.color} w={drag.piece.w} h={drag.piece.h} cellSize={GRIDG.px} />
           </div>
         </div>
       )}
