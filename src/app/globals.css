@@ -242,3 +242,14 @@
   border-radius: 999px;
   background: #3f3f46;
 }
+
+/* Shared visual language with the Flutter renderer. */
+.rush-action {transition:transform .1s,filter .1s;}
+.rush-action:active {transform:scale(.96);}
+.rush-action:focus-visible {outline:5px solid #8cecf3;outline-offset:5px;}
+.rush-earned,.rush-multiplier {font-family:'Luckiest Guy',sans-serif;line-height:1.4;white-space:nowrap;overflow:visible;font-size:100px;color:#fff0a6;-webkit-text-stroke:3px #55318f;paint-order:stroke fill;text-shadow:0 3px 0 #55318f,0 0 24px #c256ff;}
+.rush-multiplier {font-size:118px;color:#ffd45c;}
+.rush-sparkle {position:absolute;right:-12px;top:-14px;width:22px;height:22px;background:#fff4cc;clip-path:polygon(50% 0,61% 38%,100% 50%,61% 62%,50% 100%,39% 62%,0 50%,39% 38%);animation:bb-twinkle-kf .4s ease-in-out infinite alternate;}
+.bb-range {height:7px;background:#304c80;}
+.bb-range::-webkit-slider-thumb {width:20px;height:20px;background:#ffd05a;border:2px solid #fff0b3;box-shadow:0 0 12px #ffd05a55;}
+.bb-range:focus-visible {outline:2px solid #8cecf3;outline-offset:6px;}

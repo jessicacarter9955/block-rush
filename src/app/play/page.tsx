@@ -17,7 +17,9 @@ import {
 import {
   BackgroundView, IconButtonView, LogoView, PlayButtonView, pos,
 } from '@/components/game/Kit';
+import { Action, Round, Ranking } from '@/components/game/RushUI';
 import { PlayGame } from '@/components/game/PlayGame';
+import {createGameRecorder,sliderToSpeed,speedToSlider} from '@/lib/recording';
 import { useStudio } from '@/lib/store';
 import { PRESETS, fontCss } from '@/lib/skin';
 import { soundEngine } from '@/lib/audio';
@@ -83,6 +85,10 @@ export default function PlayPage() {
   const [recInfo, setRecInfo] = useState<{ url: string; name: string; size: number; dur: number; mime: string } | null>(null);
   const [recErr, setRecErr] = useState<string | null>(null);
   const [recAudio, setRecAudio] = useState(true);
+  const recBusyRef=useRef(false);
+  const recUrlRef=useRef<string|null>(null);
+  const recMountedRef=useRef(true);
+  const [recStarting,setRecStarting]=useState(false);
   const recStopRef = useRef<(() => void) | null>(null);
 
   const pushLog = useCallback((s: string) => {
@@ -97,6 +103,7 @@ export default function PlayPage() {
     const v = 'rush';
     setVersionId(v);
     applyPreset(v, 'all');
+    if(process.env.NODE_ENV==='development' && q.has('preview')) setPlaying(true);
     const sp = q.get('speed');
     if (sp) setSpeed(Math.max(0.25, Math.min(16, parseFloat(sp) || 1)));
   }, []);
@@ -193,121 +200,28 @@ export default function PlayPage() {
   // 1080×1920) ricampionando la condivisione scheda su un canvas: il video
   // scaricato è già 9:16 pronto per YouTube Shorts / TikTok, senza pannelli.
   const startRec = useCallback(async () => {
-    setRecErr(null);
+    if(recBusyRef.current || recStopRef.current) return;
+    recBusyRef.current=true;setRecStarting(true);setRecErr(null);setRecTime(0);
+    if(recUrlRef.current){URL.revokeObjectURL(recUrlRef.current);recUrlRef.current=null;}
     setRecInfo(null);
-    setRecTime(0);
     try {
-      const md = navigator.mediaDevices;
-      if (!md || !md.getDisplayMedia) {
-        throw new Error('Il browser non supporta la registrazione dello schermo: usa Chrome o Edge su desktop.');
-      }
-      const opts = {
-        video: { frameRate: 30 },
-        audio: recAudio,
-        preferCurrentTab: true,
-        selfBrowserSurface: 'include',
-        surfaceSwitching: 'exclude',
-        systemAudio: 'exclude',
-      } as unknown as MediaStreamConstraints;
-      const disp = await md.getDisplayMedia(opts);
-
-      const designEl = areaRef.current;
-      if (!designEl) throw new Error('Area di gioco non trovata.');
-
-      // superficie condivisa → <video> nascosto
-      const video = document.createElement('video');
-      video.srcObject = new MediaStream(disp.getVideoTracks());
-      video.muted = true;
-      video.playsInline = true;
-      await video.play();
-      if (!video.videoWidth) {
-        await new Promise<void>((res) => {
-          const on = () => { video.removeEventListener('loadedmetadata', on); res(); };
-          if (video.readyState >= 1) { video.removeEventListener('loadedmetadata', on); res(); }
-          else video.addEventListener('loadedmetadata', on);
-        });
-      }
-
-      // canvas 1080×1920: ricampiona solo il rettangolo del gioco
-      const canvas = document.createElement('canvas');
-      canvas.width = 1080;
-      canvas.height = 1920;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas 2D non disponibile.');
-      const draw = () => {
-        const rect = designEl.getBoundingClientRect();
-        const k = (video.videoWidth || 1) / Math.max(1, window.innerWidth);
-        ctx.drawImage(video, rect.left * k, rect.top * k, rect.width * k, rect.height * k, 0, 0, 1080, 1920);
-      };
-      draw();
-      let pumpOn = true;
-      const pump = () => {
-        if (!pumpOn) return;
-        draw();
-        const v = video as HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => number };
-        if (typeof v.requestVideoFrameCallback === 'function') v.requestVideoFrameCallback(pump);
-        else requestAnimationFrame(pump);
-      };
-      pump();
-
-      // stream misto: video dal canvas + audio della scheda (se concesso)
-      const mixed = canvas.captureStream(30);
-      for (const t of disp.getAudioTracks()) mixed.addTrack(t);
-      const mimeCandidates = [
-        'video/mp4;codecs="avc1.640028,mp4a.40.2"',
-        'video/mp4',
-        'video/webm;codecs=vp9,opus',
-        'video/webm;codecs=vp8,opus',
-        'video/webm',
-      ];
-      const mime = mimeCandidates.find((m) => MediaRecorder.isTypeSupported(m));
-      const rec = new MediaRecorder(mixed, mime ? { mimeType: mime, videoBitsPerSecond: 12_000_000, audioBitsPerSecond: 128_000 } : undefined);
-      const chunks: Blob[] = [];
-      rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
-
-      const t0 = performance.now();
-      const timer = window.setInterval(() => setRecTime((performance.now() - t0) / 1000), 250);
-      const stamp = new Date();
-      const pad = (n: number) => String(n).padStart(2, '0');
-      const ext = mime?.includes('mp4') ? 'mp4' : 'webm';
-      const name = `block-rush-${stamp.getFullYear()}${pad(stamp.getMonth() + 1)}${pad(stamp.getDate())}-${pad(stamp.getHours())}${pad(stamp.getMinutes())}${pad(stamp.getSeconds())}.${ext}`;
-
-      rec.onstop = () => {
-        pumpOn = false;
-        window.clearInterval(timer);
-        const dur = (performance.now() - t0) / 1000;
-        const blob = new Blob(chunks, { type: rec.mimeType || 'video/webm' });
-        const url = URL.createObjectURL(blob);
-        setRecInfo({ url, name, size: blob.size, dur, mime: rec.mimeType || mime || 'video/webm' });
-        setRecOn(false);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = name;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        disp.getTracks().forEach((t) => t.stop());
-        pushLog(`video registrato: ${name} (${(blob.size / 1048576).toFixed(1)} MB)`);
-      };
-      // "Interrompi condivisione" del browser → chiude anche la registrazione
-      disp.getVideoTracks()[0]?.addEventListener('ended', () => {
-        if (rec.state !== 'inactive') rec.stop();
-      });
-
-      rec.start(1000);
-      setRecOn(true);
-      recStopRef.current = () => { if (rec.state !== 'inactive') rec.stop(); };
-      pushLog('registrazione avviata · 1080×1920 · 30fps');
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (/permission|denied|abort|cancel|notallowed/i.test(msg)) {
-        setRecErr('Permesso negato: scegli «Questa scheda» nella finestra di condivisione e premi Condividi.');
-      } else {
-        setRecErr(msg);
-      }
-      setRecOn(false);
-    }
-  }, [recAudio, pushLog]);
+      const element=areaRef.current;if(!element)throw new Error('Area di gioco non trovata.');
+      const stop=await createGameRecorder({element,audio:recAudio,
+        onTime:s=>{if(recMountedRef.current)setRecTime(s);},
+        onError:message=>{recStopRef.current=null;if(recMountedRef.current){setRecErr(message);setRecOn(false);}},
+        onComplete:(blob,dur)=>{
+          recStopRef.current=null;if(!recMountedRef.current)return;
+          const ext=blob.type.includes('mp4')?'mp4':'webm';
+          const name=`block-rush-${new Date().toISOString().replace(/[:.]/g,'-')}.${ext}`;
+          const url=URL.createObjectURL(blob);recUrlRef.current=url;
+          setRecInfo({url,name,size:blob.size,dur,mime:blob.type});setRecOn(false);
+          pushLog(`video pronto: ${name} (${(blob.size/1048576).toFixed(1)} MB)`);
+        }});
+      if(!recMountedRef.current){stop();return;}
+      recStopRef.current=stop;setRecOn(true);pushLog('registrazione avviata · 1080×1920 · 30fps');
+    }catch(err){if(recMountedRef.current){setRecErr(err instanceof Error?err.message:String(err));setRecOn(false);}}
+    finally {recBusyRef.current=false;if(recMountedRef.current)setRecStarting(false);}
+  },[recAudio,pushLog]);
 
   const stopRec = useCallback(() => { recStopRef.current?.(); }, []);
 
@@ -328,13 +242,10 @@ export default function PlayPage() {
   }, [recOn, startRec, stopRec]);
 
   // ferma la registrazione se si lascia la pagina
-  useEffect(() => () => { recStopRef.current?.(); }, []);
+  useEffect(()=>{recMountedRef.current=true;return()=>{recMountedRef.current=false;recStopRef.current?.();recStopRef.current=null;if(recUrlRef.current)URL.revokeObjectURL(recUrlRef.current);};},[]);
 
   const version = useMemo(() => PRESETS.find((p) => p.id === versionId), [versionId]);
 
-  // slider (0..100) ↔ speed (0.25..16, log2)
-  const sliderToSpeed = (v: number) => Math.round(0.25 * Math.pow(2, (v / 100) * 6) * 100) / 100;
-  const speedToSlider = (s: number) => Math.round((Math.log2(s / 0.25) / 6) * 100);
 
   const startGame = () => {
     soundEngine.playEvent(skin.sounds.button);
@@ -343,7 +254,7 @@ export default function PlayPage() {
 
   // ---------------------------------------------------------------- view --
   return (
-    <div className="fixed inset-0 flex items-center justify-center overflow-hidden bg-black">
+    <div className="fixed inset-0 flex items-center justify-center overflow-hidden bg-[#0a1755]">
       {/* design space 1080×1920 */}
       <div
         ref={wrapRef}
@@ -418,10 +329,10 @@ export default function PlayPage() {
                 onClick={() => setPanelHidden(false)}
                 className="flex items-center gap-1.5 rounded-full border border-white/15 bg-black/55 px-3 py-2 text-[12px] font-bold text-white/85 backdrop-blur"
               >
-                <Bot size={14} className="text-amber-400" /> Bot
+                <Bot size={14} className="text-amber-300" /> Bot
               </button>
             ) : (
-              <div className="rounded-2xl border border-white/12 bg-zinc-950/85 p-3 text-white shadow-2xl backdrop-blur-md">
+              <div className="rounded-2xl border border-white/12 bg-[#102653]/95 p-3 text-white shadow-2xl backdrop-blur-md">
                 <div className="mb-2 flex items-center gap-2">
                   <span className={`h-2 w-2 rounded-full ${botOn ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
                   <span className="flex-1 text-[12px] font-bold tracking-wide">
@@ -452,7 +363,7 @@ export default function PlayPage() {
                   </span>
                 </div>
                 <input
-                  type="range" min={0} max={100} step={1}
+                  aria-label="Velocità bot" type="range" min={0} max={100} step={1}
                   value={speedToSlider(speed)}
                   onChange={(e) => setSpeed(sliderToSpeed(parseInt(e.target.value, 10)))}
                   className="mb-2 w-full accent-amber-400"
@@ -477,7 +388,7 @@ export default function PlayPage() {
                   {!recOn ? (
                     <>
                       <button
-                        onClick={() => void startRec()}
+                        disabled={recStarting} onClick={() => void startRec()}
                         className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-rose-500/90 py-2.5 text-[13px] font-extrabold text-white transition hover:bg-rose-500"
                       >
                         <CircleDot size={14} />
@@ -630,24 +541,11 @@ function HomeScreen({
         </div>
       )}
 
-      {/* play — patch 1:1 dal reference: 722×298 centrata a (533, 1319) */}
-      <div style={pos(533, playY, 722, 298)}>
-        <PlayButtonView skin={skin} onClick={onPlay} />
-      </div>
-
-      {/* bottom icon row — 1:1 reference: sfx 204 · ranking 539 · music 882 @1664,
-          disco 251 (sprite naturale, nessuno scalato) */}
-      <div style={{ ...pos(204, rowY, iconSize, iconSize) }}>
-        <IconButtonView skin={skin} kind="sfx" size={iconSize} group="home" on={sfxOn} onClick={onSfx} />
-      </div>
-      <div style={{ ...pos(539, rowY, iconSize, iconSize) }}>
-        <IconButtonView skin={skin} kind="ranking" size={iconSize} group="home" onClick={onRanking} />
-      </div>
-      <div style={{ ...pos(882, rowY, iconSize, iconSize) }}>
-        <IconButtonView skin={skin} kind="music" size={iconSize} group="home" on={musicOn} onClick={onMusic} />
-      </div>
-
-      {rankOpen && <RankingPopup onClose={closeRanking} />}
+      <Action label="PLAY" x={533} y={1319} w={670} h={220} font={88} primary onClick={onPlay}/>
+      <Round kind="sfx" x={204} y={1664} on={sfxOn} onClick={onSfx}/>
+      <Round kind="ranking" x={539} y={1664} onClick={onRanking}/>
+      <Round kind="music" x={882} y={1664} on={musicOn} onClick={onMusic}/>
+      {rankOpen && <Ranking best={Number(localStorage.getItem('block-rush-best'))||0} onClose={closeRanking}/>}
     </div>
   );
 }

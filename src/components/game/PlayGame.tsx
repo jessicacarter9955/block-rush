@@ -12,6 +12,7 @@ import {
   ComboTextView, EmptyCellsView, IconButtonView, MaskIconView, PieceView,
   Plus100View, PopupSurface, pos, relPos, ScoreTextView,
 } from '@/components/game/Kit';
+import { Crown, Gem, Round, PauseMenu, Ranking, Reward, EndRun } from './RushUI';
 import { BlockTile } from '@/components/blocks/BlockTile';
 import {
   canPlace, calcEarned, clearCells, findFullLines, hasAnyMove,
@@ -63,7 +64,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
   const [shakeKey, setShakeKey] = useState(0);
   const [gameOver, setGameOver] = useState(false);
   const [reviveOffer, setReviveOffer] = useState(false);
-  const [reviveLeft, setReviveLeft] = useState(5);
+  const [reviveLeft, setReviveLeft] = useState(10);
   const revivesUsed = useRef(0);
   const [paused, setPaused] = useState(false);
   const [ranking, setRanking] = useState(false);
@@ -89,6 +90,20 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
   pausedRef.current = paused;
   dragRef.current = drag;
 
+  useEffect(()=>{ try { setBest(Number(localStorage.getItem('block-rush-best'))||0); } catch {} },[]);
+  useEffect(()=>{ if(process.env.NODE_ENV==='development' && new URLSearchParams(location.search).has('preview'))return; if(best>0) { try { localStorage.setItem('block-rush-best',String(best)); } catch {} } },[best]);
+
+  useEffect(()=>{
+    if(process.env.NODE_ENV!=='development') return;
+    const preview=new URLSearchParams(location.search).get('preview');
+    if(preview==='gameover') {setScore(2480);setGameOver(true);}
+    if(preview==='revive') {setScore(2480);setReviveOffer(true);}
+    if(preview==='combo') {
+      const show=()=>{setComboShow({n:4,x:540,y:780});setPopups([{id:Date.now(),x:540,y:1160,value:480}]);spawnPreviewGems();};
+      function spawnPreviewGems(){setParticles(Array.from({length:24},(_,i)=>({id:Date.now()+i,x:180+Math.random()*720,y:1000,dx:(Math.random()-.5)*450,dy:(Math.random()-.5)*350,size:25+Math.random()*31,color:['#b03ffd','#03c0fd','#fc8418','#de3cef'][i%4],round:false,rot:180})));}
+      show();const timer=setInterval(show,2300);return()=>clearInterval(timer);
+    }
+  },[]);
   // volumes
   useEffect(() => {
     soundEngine.setVolumes(skin.sounds.sfxVol, skin.sounds.musicVol);
@@ -158,7 +173,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
     const out: Particle[] = [];
     const mk = (x: number, y: number, dx: number, dy: number, color: string) => ({
       id: FxId++, x, y, dx, dy,
-      size: style === 'original' ? 20 + Math.random() * 30 : 14 + Math.random() * 18,
+      size: 25 + Math.random() * 31,
       color: style === 'confetti'
         ? skinRef.blocks.colors[Math.floor(Math.random() * 8)]
         : color,
@@ -278,7 +293,10 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
     if (!reviveRef.current) return;
     revivesUsed.current += 1;
     setReviveOffer(false);
-    setTray(originalTray(boardRef.current));
+    const cleared=[...boardRef.current];
+    for(let y=2;y<5;y++) for(let x=2;x<5;x++) cleared[y*8+x]=null;
+    boardRef.current=cleared;setBoard(cleared);
+    setTray(originalTray(cleared));
     if (sfxOn) soundEngine.playEvent(skin.sounds.button);
   }, [skin, sfxOn]);
 
@@ -286,8 +304,8 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
 
   // revive countdown: 5 seconds (original ReviveTime)
   useEffect(() => {
-    if (!reviveOffer) return;
-    setReviveLeft(5);
+    if (!reviveOffer || (process.env.NODE_ENV==='development' && new URLSearchParams(location.search).get('preview')==='revive')) return;
+    setReviveLeft(10);
     const iv = setInterval(() => {
       setReviveLeft((v) => {
         if (v <= 1) {
@@ -418,8 +436,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
       </div>
       {/* crown patch pulita (solo corona, sfondo rimosso, aspect naturale) */}
       <div style={pos(111, 107, 158, 136)}>
-        <img src={`${BP}/sprites/CupIcon-f00.png`} alt="record" draggable={false}
-          style={{ width: '100%', height: '100%', objectFit: 'fill', display: 'block' }} />
+        <Crown size={158}/>
       </div>
       {/* best score — SOTTO la corona, centrato nella sua colonna */}
       <div style={pos(111, 258, 320, 72)}>
@@ -428,7 +445,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
         </div>
       </div>
       <div style={pos(981, 115, 185, 185)}>
-        <IconButtonView skin={skin} kind="pause" size={185} group="game" onClick={() => { setPaused(true); if (sfxOn) soundEngine.playEvent(skin.sounds.button); }} />
+        <Round kind="pause" size={142} x={92.5} y={92.5} onClick={() => { setPaused(true); if (sfxOn) soundEngine.playEvent(skin.sounds.button); }} />
       </div>
 
       {/* board */}
@@ -481,30 +498,31 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
           style={{
             position: 'absolute', left: p.x, top: p.y,
             width: p.size, height: p.size,
-            background: p.color,
+            background: 'transparent',
+            filter: `drop-shadow(0 0 9px ${p.color})`,
             borderRadius: p.round ? '50%' : 4,
-            border: p.round ? `3px solid ${withAlpha('#FFFFFF', 0.7)}` : undefined,
+            border: undefined,
             // @ts-expect-error css vars
             '--dx': `${p.dx}px`, '--dy': `${p.dy}px`, '--rot': `${p.rot}deg`,
           }}
-        />
+        ><Gem color={p.color} size={p.size}/><span className="rush-sparkle"/></div>
       ))}
 
       {/* +N popups */}
       {popups.map((p) => (
         <div key={p.id} className="bb-popup" style={pos(p.x, p.y, 500, 220)}>
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Plus100View skin={skin} value={p.value} />
+            <span className="rush-earned">+{p.value}</span>
           </div>
         </div>
       ))}
 
       {/* combo */}
       {comboShow && (
-        <div className="bb-combo" style={pos(comboShow.x, comboShow.y, 500, 260)}>
+        <div className="bb-combo" style={pos(540, 780, 650, 280)}>
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
             <span style={{ ...fontCss('riffic', 64), color: '#FFFFFF', letterSpacing: '0.1em', textShadow: `0 0 22px ${withAlpha(skin.effects.comboGlow, 0.9)}` }}>COMBO</span>
-            <ComboTextView skin={skin} value={comboShow.n} />
+            <span className="rush-multiplier">×{comboShow.n}</span>
           </div>
         </div>
       )}
@@ -551,207 +569,11 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
         </div>
       )}
 
-      {/* pause overlay — 1:1: pannello sprite originale + bottoni reference,
-          ciascuno col suo aspect naturale (niente icone schiacciate) */}
-      {paused && !gameOver && !ranking && (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(3,5,16,0.55)', zIndex: 80 }}>
-          <div style={pos(540, 960.5, 886, 1113)}>
-            {skin.popup.style === 'original' ? (
-              <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${BP}/sprites/PausePopup-f00.png)`, backgroundSize: '100% 100%' }} />
-            ) : (
-              <PopupSurface skin={skin} w={886} h={1113} />
-            )}
-            <div style={relPos(899, 482, 80, 80, 540, 960.5, 886, 1113)}>
-              <IconButtonView skin={skin} kind="close" size={80} group="game" onClick={() => setPaused(false)} />
-            </div>
-            <div style={relPos(794, 655, 165, 165, 540, 960.5, 886, 1113)}>
-              <IconButtonView skin={skin} kind="sfx" size={165} group="settings" on={sfxOn} onClick={() => setSfxOn(!sfxOn)} />
-            </div>
-            <div style={relPos(794, 830, 165, 165, 540, 960.5, 886, 1113)}>
-              <IconButtonView skin={skin} kind="music" size={165} group="settings" on={musicOn}
-                onClick={() => {
-                  if (musicOn) soundEngine.stopMusic();
-                  else void soundEngine.startMusic(skin.sounds.music);
-                  setMusicOn(!musicOn);
-                }} />
-            </div>
-            <div style={relPos(761, 1005, 282, 115, 540, 960.5, 886, 1113)}>
-              <IconButtonView skin={skin} kind="home" size={115} w={282} group="game" onClick={() => setPlaying(false)} />
-            </div>
-            <div style={relPos(761, 1175, 282, 116, 540, 960.5, 886, 1113)}>
-              <IconButtonView skin={skin} kind="reset" size={116} w={282} group="game" onClick={restart} />
-            </div>
-            <div style={relPos(761, 1345, 280, 114, 540, 960.5, 886, 1113)}>
-              <IconButtonView skin={skin} kind="showRanking" size={114} w={280} group="game" onClick={() => setRanking(true)} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ranking overlay (dal menu pausa) — popup originale con righe ItemBg */}
-      {ranking && (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(3,5,16,0.55)', zIndex: 85 }}>
-          <div style={pos(540, 966.5, 928, 1535)}>
-            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${BP}/sprites/LeaderboardPopup2-f00.png)`, backgroundSize: '100% 100%' }} />
-            <div style={relPos(540, 283, 700, 110, 540, 966.5, 928, 1535)}>
-              <div style={{ ...fontCss('riffic', 72), color: '#212121', textAlign: 'center', letterSpacing: '0.08em', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                RANKING
-              </div>
-            </div>
-            {[...RANKING_ROWS, { name: 'Tu', score: Math.max(best, score) }].map((row, i) => {
-              const isYou = row.name === 'Tu';
-              return (
-                <div key={i} style={relPos(540, 490 + i * 120, 733, 103, 540, 966.5, 928, 1535)}>
-                  <img src={`${BP}/sprites/ItemBg-f0${isYou ? 1 : 0}.png`} alt="" draggable={false}
-                    style={{ width: '100%', height: '100%', objectFit: 'fill' }} />
-                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', padding: '0 44px', boxSizing: 'border-box' }}>
-                    <span style={{ ...fontCss('carlito', 40), color: '#212121', width: 64 }}>{i + 1}</span>
-                    <span style={{ ...fontCss('carlito', 40), color: '#212121', flex: 1 }}>{row.name}</span>
-                    <span style={{ ...fontCss('carlito', 40), color: '#212121' }}>{row.score.toLocaleString('it-IT')}</span>
-                  </div>
-                </div>
-              );
-            })}
-            <div style={relPos(918, 275, 89, 89, 540, 966.5, 928, 1535)}>
-              <IconButtonView skin={skin} kind="close" size={89} group="game" onClick={() => setRanking(false)} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* revive popup (original "Revive" layer: watch ad & continue) */}
-      {reviveOffer && (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(3,5,16,0.66)', zIndex: 85 }}>
-          <div style={pos(540, 760, 860, 760)}>
-            <PopupSurface skin={skin} w={860} h={760}>
-              <div
-                style={{
-                  position: 'absolute', left: 0, right: 0, top: 64,
-                  ...fontCss('riffic', 76), color: '#FFFFFF', letterSpacing: '0.1em',
-                  textAlign: 'center',
-                  textShadow: `0 0 26px ${withAlpha(skin.popup.c1, 0.9)}, 0 4px 0 rgba(0,0,0,0.35)`,
-                }}
-              >
-                CONTINUA?
-              </div>
-              {/* radial countdown */}
-              <div
-                style={{
-                  position: 'absolute', left: '50%', top: 200, width: 260, height: 260,
-                  transform: 'translateX(-50%)', borderRadius: '50%',
-                  background: `conic-gradient(${withAlpha('#FFD34D', 0.95)} ${(reviveLeft / 5) * 360}deg, ${withAlpha('#FFFFFF', 0.12)} 0deg)`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}
-              >
-                <div
-                  style={{
-                    width: 196, height: 196, borderRadius: '50%',
-                    background: withAlpha(skin.popup.c1, 0.98),
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: 'inset 0 8px 26px rgba(0,0,0,0.45)',
-                  }}
-                >
-                  <span style={{ ...fontCss('riffic', 110), color: '#FFFFFF', textShadow: '0 5px 0 rgba(0,0,0,0.35)' }}>
-                    {reviveLeft}
-                  </span>
-                </div>
-              </div>
-              {/* revive button */}
-              <div
-                data-bb-revive="1"
-                onClick={revive}
-                style={{
-                  position: 'absolute', left: 60, right: 60, bottom: 62, height: 168,
-                  borderRadius: 999, cursor: 'pointer',
-                  background: `linear-gradient(180deg, ${lighten(skin.playBtn.c1, 0.15)}, ${skin.playBtn.c2})`,
-                  border: `5px solid ${withAlpha('#FFFFFF', 0.45)}`,
-                  boxShadow: `0 14px 40px ${withAlpha(skin.playBtn.c1, 0.5)}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20,
-                }}
-              >
-                <MaskIconView sprite="Heart-f00.png" color={skin.effects.comboGlow} size={104} glow={24} />
-                <span style={{ ...fontCss('riffic', 56), color: skin.playBtn.textColor, letterSpacing: '0.04em', textShadow: '0 4px 0 rgba(0,0,0,0.3)', textAlign: 'center' }}>
-                  GUARDA ANNUNCIO
-                  <br />
-                  E CONTINUA
-                </span>
-              </div>
-            </PopupSurface>
-          </div>
-        </div>
-      )}
-
-      {/* game over overlay */}
-      {gameOver && (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(3,5,16,0.66)', zIndex: 90 }}>
-          <div style={pos(540.2, 506.4, 940, 156)}>
-            {skin.popup.style === 'original'
-              ? <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${BP}/sprites/GameOver-f00.png)`, backgroundSize: '100% 100%' }} />
-              : (
-                <PopupSurface skin={skin} w={940} h={156}>
-                  <div
-                    style={{
-                      position: 'absolute', inset: 0,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      ...fontCss('riffic', 82), color: '#FFFFFF', letterSpacing: '0.1em',
-                      textShadow: `0 0 26px ${withAlpha(skin.popup.c1, 0.9)}, 0 4px 0 rgba(0,0,0,0.35)`,
-                    }}
-                  >
-                    GAME OVER
-                  </div>
-                </PopupSurface>
-              )}
-          </div>
-          <div style={{ ...pos(540, 761.3, 600, 90), ...fontCss('riffic', 62), color: '#FFF', letterSpacing: '0.12em', textAlign: 'center' }}>SCORE</div>
-          <div style={pos(540, 905, 800, 180)}>
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', justifyContent: 'center' }}>
-              <ScoreTextView skin={skin} value={score} />
-            </div>
-          </div>
-          <div style={{ ...pos(540, 1113, 700, 90), ...fontCss('riffic', 58), color: '#FFF', letterSpacing: '0.12em', textAlign: 'center' }}>BEST SCORE</div>
-          <div style={pos(407.5, 1205.5, 136, 117)}>
-            <img src={`${BP}/sprites/CupIcon-f00.png`} alt="record" draggable={false}
-              style={{ width: '100%', height: '100%', objectFit: 'fill', display: 'block' }} />
-          </div>
-          <div style={{ position: 'absolute', left: 482, top: 1177, height: 92, display: 'flex', alignItems: 'center' }}>
-            <BestTextView skin={skin} value={Math.max(best, score)} align="left" />
-          </div>
-          <div style={pos(540.1, 1597.9, 510, 177)}>
-            <GameOverResetButton skin={skin} onClick={restart} />
-          </div>
-        </div>
-      )}
+      {paused && !gameOver && !ranking && <PauseMenu resume={()=>setPaused(false)} home={()=>setPlaying(false)} restart={restart} ranking={()=>setRanking(true)} musicOn={musicOn} sfxOn={sfxOn} sfx={()=>setSfxOn(!sfxOn)} music={()=>{ if(musicOn) soundEngine.stopMusic(); else void soundEngine.startMusic(skin.sounds.music); setMusicOn(!musicOn); }}/>}
+      {ranking && <Ranking best={Math.max(best,score)} onClose={()=>setRanking(false)}/>}
+      {reviveOffer && <Reward seconds={reviveLeft} continueRun={revive} end={()=>{setReviveOffer(false);setGameOver(true);}}/>}
+      {gameOver && <EndRun score={score} best={Math.max(best,score)} restart={restart} home={()=>setPlaying(false)}/>}
       </div>
-    </div>
-  );
-}
-
-function GameOverResetButton({ skin, onClick }: { skin: SkinState; onClick: () => void }) {
-  if (skin.iconBtn.style === 'original') {
-    return (
-      <div onClick={onClick} style={{ position: 'absolute', inset: 0, cursor: 'pointer' }}>
-        { }
-        <img src={`${BP}/sprites/BtnGOReset-f00.png`} alt="Rigioca" draggable={false}
-          style={{ width: '100%', height: '100%', objectFit: 'fill' }} />
-      </div>
-    );
-  }
-  const c1 = skin.playBtn.c1, c2 = skin.playBtn.c2;
-  return (
-    <div
-      onClick={onClick}
-      style={{
-        position: 'absolute', inset: 0, cursor: 'pointer',
-        borderRadius: 999,
-        background: `linear-gradient(180deg, ${lighten(c1, 0.15)}, ${c2})`,
-        border: `5px solid ${withAlpha('#FFFFFF', 0.45)}`,
-        boxShadow: `0 14px 40px ${withAlpha(c1, 0.5)}`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}
-    >
-      <span style={{ ...fontCss('riffic', 84), color: skin.playBtn.textColor, letterSpacing: '0.08em', textShadow: '0 4px 0 rgba(0,0,0,0.3)' }}>
-        RIGIOCA
-      </span>
     </div>
   );
 }
