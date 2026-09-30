@@ -2,11 +2,12 @@
   "name": "block-rush",
   "version": "1.0.0",
   "private": true,
-  "description": "Block Rush 1:1 — il puzzle game pixel perfect (web). Bot giocatore + recorder video integrati.",
+  "description": "Block Rush 1:1 \u2014 il puzzle game pixel perfect (web). Bot giocatore + recorder video integrati.",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
-    "start": "npx serve@latest out"
+    "start": "npx serve@latest out",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",

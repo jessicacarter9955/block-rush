@@ -655,7 +655,7 @@ export const BLOCK_RUSH_PRESET: PresetDef = {
         // frame.png = board COMPLETO (bordo neon + interno con separatori, blocchi rimossi).
         // Ritaglio ref (10,285)-(930,1195) mappato sulle celle app (scala 1.2 h / 1.168 v):
         // rect relativo al container 1000x1000 = (-45, -35, 1104, 1063).
-        interiorBaked: true,
+        interiorBaked: false,
         // frame.png 1:1 (26,343)-(1045,1374) design; container = griglia
         // (74.5,385)-(1001,1328.5) → offset relativo:
         frameRect: { left: -48.5, top: -42, w: 1019, h: 1031 },

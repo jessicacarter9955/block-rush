@@ -7,10 +7,10 @@ const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 const nextConfig: NextConfig = {
   output: "export",
+  allowedDevOrigins: ["127.0.0.1"],
   trailingSlash: true,
   basePath: basePath || undefined,
   images: { unoptimized: true },
-  typescript: { ignoreBuildErrors: true },
   reactStrictMode: false,
   devIndicators: false,
 };

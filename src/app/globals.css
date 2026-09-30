@@ -253,3 +253,6 @@
 .bb-range {height:7px;background:#304c80;}
 .bb-range::-webkit-slider-thumb {width:20px;height:20px;background:#ffd05a;border:2px solid #fff0b3;box-shadow:0 0 12px #ffd05a55;}
 .bb-range:focus-visible {outline:2px solid #8cecf3;outline-offset:6px;}
+
+.rush-beam { clip-path:polygon(0 50%,4% 0,96% 0,100% 50%,96% 100%,4% 100%); background:linear-gradient(0deg,transparent 46%,white 48%,white 52%,transparent 54%),linear-gradient(90deg,#724aff,#00e6ff,white,#ff55e1,#ffbc39); animation:rush-beam .8s ease-out forwards; }
+@keyframes rush-beam {0%{opacity:1;clip-path:polygon(48% 50%,49% 30%,51% 30%,52% 50%,51% 70%,49% 70%)}20%{opacity:1;clip-path:polygon(0 50%,4% 0,96% 0,100% 50%,96% 100%,4% 100%)}100%{opacity:0}}

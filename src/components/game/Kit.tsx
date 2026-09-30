@@ -278,7 +278,7 @@ export function EmptyCellsView({ skin }: { skin: SkinState }) {
                   backgroundSize: '100% 100%',
                   backgroundRepeat: 'no-repeat',
                 }
-              : { backgroundColor: b.cellColor }),
+              : { background: `linear-gradient(135deg,#12265b,${b.cellColor})`,border:'2px solid #1c3263' }),
             boxShadow: b.style === 'outline'
               ? `inset 0 0 0 2px ${withAlpha(b.lineColor, 0.8)}`
               : `inset 0 2px 6px ${withAlpha('#000000', 0.4)}`,
@@ -287,7 +287,7 @@ export function EmptyCellsView({ skin }: { skin: SkinState }) {
       );
     }
   }
-  return <>{cells}</>;
+  return <><div style={{position:'absolute',inset:0,background:'#050e32'}}/>{cells}</>;
 }
 
 // ----------------------------------------------------------------- pieces ---

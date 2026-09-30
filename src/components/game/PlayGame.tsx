@@ -16,7 +16,7 @@ import { Crown, Gem, Round, PauseMenu, Ranking, Reward, EndRun } from './RushUI'
 import { BlockTile } from '@/components/blocks/BlockTile';
 import {
   canPlace, calcEarned, clearCells, findFullLines, hasAnyMove,
-  placedCells, previewLines, originalTray, GRID,
+  placedCells, previewLines, originalTray, ensureFairTray, fairDeal, type SolutionMove, GRID,
   type Board, type Piece,
 } from '@/lib/game';
 import { useStudio } from '@/lib/store';
@@ -49,7 +49,12 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
   const setPlaying = useStudio((s) => s.setPlaying);
 
   const [board, setBoard] = useState<Board>(() => Array(64).fill(null));
-  const [tray, setTray] = useState<(Piece | null)[]>(() => originalTray(Array(64).fill(null)));
+  const [initialDeal] = useState(()=>fairDeal(Array(64).fill(null),[0,1,2]));
+  const [tray, setTray] = useState<(Piece | null)[]>(initialDeal.pieces);
+  const [showSolution, setShowSolution] = useState(false);
+  const [fairRefreshed, setFairRefreshed] = useState(false);
+  const [solution,setSolution] = useState<SolutionMove[]>(initialDeal.solution);
+  const hint = showSolution ? solution[0] : undefined;
   const [score, setScore] = useState(0);
   const [scoreShown, setScoreShown] = useState(0);
   const [best, setBest] = useState(0);
@@ -58,6 +63,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
   const [drag, setDrag] = useState<{ slot: number; piece: Piece; x: number; y: number } | null>(null);
   const [ghost, setGhost] = useState<{ r: number; c: number; valid: boolean; rows: number[]; cols: number[] } | null>(null);
   const [popups, setPopups] = useState<Popup[]>([]);
+  const [beams,setBeams] = useState<{id:number;horizontal:boolean;index:number}[]>([]);
   const [flashes, setFlashes] = useState<Flash[]>([]);
   const [particles, setParticles] = useState<Particle[]>([]);
   const [comboShow, setComboShow] = useState<{ n: number; x: number; y: number } | null>(null);
@@ -99,8 +105,8 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
     if(preview==='gameover') {setScore(2480);setGameOver(true);}
     if(preview==='revive') {setScore(2480);setReviveOffer(true);}
     if(preview==='combo') {
-      const show=()=>{setComboShow({n:4,x:540,y:780});setPopups([{id:Date.now(),x:540,y:1160,value:480}]);spawnPreviewGems();};
-      function spawnPreviewGems(){setParticles(Array.from({length:24},(_,i)=>({id:Date.now()+i,x:180+Math.random()*720,y:1000,dx:(Math.random()-.5)*450,dy:(Math.random()-.5)*350,size:25+Math.random()*31,color:['#b03ffd','#03c0fd','#fc8418','#de3cef'][i%4],round:false,rot:180})));}
+      const show=()=>{setBeams([{id:Date.now(),horizontal:true,index:5}]);setComboShow({n:4,x:540,y:780});setPopups([{id:Date.now(),x:540,y:1160,value:480}]);spawnPreviewGems();};
+      function spawnPreviewGems(){setParticles(Array.from({length:24},(_,i)=>({id:Date.now()+i,x:180+Math.random()*720,y:1000,dx:(Math.random()-.5)*450,dy:(Math.random()-.5)*350,size:34+Math.random()*38,color:['#b03ffd','#03c0fd','#fc8418','#de3cef'][i%4],round:false,rot:180})));}
       show();const timer=setInterval(show,2300);return()=>clearInterval(timer);
     }
   },[]);
@@ -173,18 +179,16 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
     const out: Particle[] = [];
     const mk = (x: number, y: number, dx: number, dy: number, color: string) => ({
       id: FxId++, x, y, dx, dy,
-      size: 25 + Math.random() * 31,
-      color: style === 'confetti'
-        ? skinRef.blocks.colors[Math.floor(Math.random() * 8)]
-        : color,
-      round: style === 'rings',
+      size: 34 + Math.random() * 38,
+      color: ['#b94dff','#09deff','#45f2a6','#ffbb24','#ff45cf','#6688ff'][Math.floor(Math.random()*6)],
+      round: false,
       rot: (Math.random() - 0.5) * 720,
     });
     for (const r of rows) {
       const color = colors[Math.min(63, Math.max(0, r * GRID))] ?? skinRef.effects.flashColor;
       for (let i = 0; i < 14; i++) {
         const dir = i % 2 === 0 ? 1 : -1;
-        out.push(mk(BOARD.originX + Math.random() * 840, BOARD.originY + (r + 0.5) * GRIDG.py, dir * (260 + Math.random() * 300), (Math.random() - 0.5) * 220, skinRef.blocks.colors[color as number] ?? '#FFFFFF'));
+        out.push(mk(BOARD.originX + Math.random() * 840, BOARD.originY + (r + 0.5) * GRIDG.py, dir * (260 + Math.random() * 300), -60-Math.random()*200, skinRef.blocks.colors[color as number] ?? '#FFFFFF'));
       }
     }
     for (const c of cols) {
@@ -226,6 +230,8 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
       nextBoard = clearedB;
       setBoard(clearedB);
 
+      const newBeams=[...lines.rows.map(index=>({id:FxId++,horizontal:true,index})),...lines.cols.map(index=>({id:FxId++,horizontal:false,index}))];
+      setBeams(newBeams);setTimeout(()=>setBeams(current=>current.filter(b=>!newBeams.some(n=>n.id===b.id))),800);
       // flashes
       const fl: Flash[] = [...cleared].map((idx) => ({ id: FxId++, r: Math.floor(idx / GRID), c: idx % GRID }));
       setFlashes((f) => [...f, ...fl]);
@@ -266,25 +272,11 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
     // consume piece (refill the tray when all three pieces are used)
     // 1:1 with the original "CreateShapes": pool of 5 placeable shapes.
     const remaining: (Piece | null)[] = trayRef.current.map((t, i) => (i === slot ? null : t));
-    const nextTray: (Piece | null)[] = remaining.every((t) => !t)
-      ? originalTray(nextBoard)
-      : remaining;
-    setTray(nextTray);
+    const verified = ensureFairTray(nextBoard,remaining);
+    boardRef.current=nextBoard;trayRef.current=verified.pieces;
+    setTray(verified.pieces);setSolution(verified.solution);setFairRefreshed(verified.refreshed);
     setDrag(null);
     setGhost(null);
-
-    // game over? — first offer the REVIVE (original "Revive" layer: watch an
-    // ad and continue, score kept). If the countdown expires -> real game over.
-    setTimeout(() => {
-      if (!hasAnyMove(nextBoard, nextTray)) {
-        if (revivesUsed.current >= 30) {
-          setGameOver(true);
-          if (sfxOn) soundEngine.playEvent(skin.sounds.gameOver);
-        } else {
-          setReviveOffer(true);
-        }
-      }
-    }, 400);
   }, [skin, sfxOn, heartOn, spawnLineFx]);
 
   // ------------------------------------------------------------ revive --
@@ -296,7 +288,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
     const cleared=[...boardRef.current];
     for(let y=2;y<5;y++) for(let x=2;x<5;x++) cleared[y*8+x]=null;
     boardRef.current=cleared;setBoard(cleared);
-    setTray(originalTray(cleared));
+    const deal=fairDeal(cleared,[0,1,2]);setTray(deal.pieces);setSolution(deal.solution);
     if (sfxOn) soundEngine.playEvent(skin.sounds.button);
   }, [skin, sfxOn]);
 
@@ -375,8 +367,9 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
   }, [drag, toDesign, doPlace, sfxOn]);
 
   const restart = () => {
+    setFairRefreshed(false);setShowSolution(false);
     setBoard(Array(64).fill(null));
-    setTray(originalTray(Array(64).fill(null)));
+    const deal=fairDeal(Array(64).fill(null),[0,1,2]);setTray(deal.pieces);setSolution(deal.solution);
     setScore(0);
     setScoreShown(0);
     setCombo(-1);
@@ -484,9 +477,11 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
           </div>
         ))}
 
-        {/* flashes */}
-        {flashes.map((f) => (
-          <div key={f.id} className="bb-flash" style={{ ...cellRect(f.r, f.c), background: skin.effects.flashColor }} />
+        {hint && !drag && placedCells(hint.piece,hint.r,hint.c).map(([r,c])=><div key={`hint-${r}-${c}`} style={{...cellRect(r,c),background:'#4fffe170',border:'4px solid #aafff0',pointerEvents:'none'}}/>)}
+      {/* flashes */}
+        {beams.map(b=><div key={b.id} className="rush-beam" style={{position:'absolute',left:b.horizontal?0:(b.index+.5)*GRIDG.px-BOARD.h/2,top:b.horizontal?(b.index+.5)*GRIDG.py-35:BOARD.h/2-35,width:b.horizontal?BOARD.size:BOARD.h,height:70,transform:b.horizontal?undefined:'rotate(90deg)',pointerEvents:'none'}}/>)}
+      {flashes.map((f) => (
+          <div key={f.id} className="bb-flash" style={{ ...cellRect(f.r, f.c), background: 'linear-gradient(135deg,#7bfaff80,#fc56d680)',clipPath:'polygon(15% 0,85% 0,100% 15%,100% 85%,85% 100%,15% 100%,0 85%,0 15%)' }} />
         ))}
       </div>
 
@@ -523,6 +518,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
             <span style={{ ...fontCss('riffic', 64), color: '#FFFFFF', letterSpacing: '0.1em', textShadow: `0 0 22px ${withAlpha(skin.effects.comboGlow, 0.9)}` }}>COMBO</span>
             <span className="rush-multiplier">×{comboShow.n}</span>
+            {[[-20,5,'#09deff'],[585,55,'#ff45cf'],[0,225,'#b354ff'],[605,255,'#ffbb24']].map(([x,y,color],i)=><div key={i} style={{position:'absolute',left:Number(x),top:Number(y),transform:`rotate(${i%2?20:-17}deg)`}}><Gem size={55} color={String(color)}/></div>) }
           </div>
         </div>
       )}
@@ -546,7 +542,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
         // clamp: le forme larghe si rimpiccioliscono per non toccare i vicini
         const scale = p ? Math.min(1, 300 / (p.w * 89), 300 / (p.h * 89)) : 1;
         return (
-          <div key={slot} data-bb-slot={slot} style={pos(X, 1600, 340, 340)}
+          <div key={slot} data-bb-slot={slot} style={{...pos(X, 1600, 340, 340),outline:hint?.slot===slot?'4px solid #aafff0':undefined,borderRadius:22}}
             onPointerDown={onPieceDown(slot)}>
             {(ph.img || ph.style !== 'none') && <div style={{ position: 'absolute', inset: 0, ...holder }} />}
             {p && !isDragging && (
@@ -560,6 +556,9 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
         );
       })}
 
+      <button onClick={()=>setShowSolution(v=>!v)} style={{...pos(540,1820,540,88),border:'2px solid #5b82ba',borderRadius:24,background:'linear-gradient(#2d559a,#21417d)',color:'white',...fontCss('luckiest',32),cursor:'pointer'}}>{showSolution?'NASCONDI AIUTO':'SOLUZIONE'}</button>
+      {hint && <div style={{...pos(540,1408,1050,42),textAlign:'center',font:'29px Arial',color:'#bafff2'}}>Pezzo {hint.slot+1} → celle luminose · {solution.length} mosse verificate</div>}
+      {fairRefreshed && <div role="status" style={{...pos(540,1895,1000,36),textAlign:'center',font:'26px Arial',color:'#9befff'}}>Pezzi aggiornati: c’è sempre una soluzione</div>}
       {/* dragged piece follows the pointer, lifted like the original */}
       {drag && (
         <div style={{ ...pos(drag.x, drag.y - 200, 600, 600), pointerEvents: 'none', zIndex: 60 }}>

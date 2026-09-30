@@ -59,40 +59,65 @@ export function shapeFitsAnywhere(board: Board, shapeIdx: number): boolean {
  * 0..7 list. The placeability guarantee is what keeps the game fair.
  */
 export function originalTray(board: Board, rand: () => number = Math.random): Piece[] {
-  // GetAvailableShapes: shuffle all shapes, keep first 5 that fit
-  const all = Array.from({ length: SHAPES.length }, (_, i) => i);
-  for (let i = all.length - 1; i > 0; i--) {
-    const j = Math.floor(rand() * (i + 1));
-    [all[i], all[j]] = [all[j], all[i]];
-  }
-  const pool: number[] = [];
-  for (const s of all) {
-    if (pool.length >= 5) break;
-    if (shapeFitsAnywhere(board, s)) pool.push(s);
-  }
-  // 3 distinct colors from a shuffled 0..7 list
-  const colors = [0, 1, 2, 3, 4, 5, 6, 7];
-  for (let i = colors.length - 1; i > 0; i--) {
-    const j = Math.floor(rand() * (i + 1));
-    [colors[i], colors[j]] = [colors[j], colors[i]];
-  }
-  const poolMut = [...pool];
-  const out: Piece[] = [];
-  for (let i = 0; i < 3; i++) {
-    let shapeIdx: number;
-    if (poolMut.length > 0) {
-      shapeIdx = poolMut[Math.floor(rand() * poolMut.length)];
-      // keep the pool at >= 3 so tray shapes stay distinct (original rule)
-      if (poolMut.length >= 3) poolMut.splice(poolMut.indexOf(shapeIdx), 1);
-    } else {
-      shapeIdx = Math.floor(rand() * SHAPES.length) % SHAPES.length;
+  return fairDeal(board, [0, 1, 2], rand).pieces as Piece[];
+}
+
+export interface SolutionMove { slot:number; piece:Piece; r:number; c:number }
+export function applySolution(board:Board, move:SolutionMove):Board {
+  if(!canPlace(board,move.piece,move.r,move.c)) throw new Error('Invalid solution move');
+  const next=[...board];
+  for(const [r,c] of placedCells(move.piece,move.r,move.c)) next[r*8+c]=move.piece.color;
+  const lines=findFullLines(next);
+  return clearCells(next,lines.rows,lines.cols).board;
+}
+function shuffled(n:number,rand:()=>number):number[] {
+  const a=Array.from({length:n},(_,i)=>i);
+  for(let i=n-1;i>0;i--) {const j=Math.floor(rand()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+/** Constructive proof: each piece is selected on the simulated post-clear board. */
+export function fairDeal(board:Board,slots:number[],rand:()=>number=Math.random):{pieces:(Piece|null)[];solution:SolutionMove[]} {
+  let simulated=[...board];const pieces:(Piece|null)[]=[null,null,null],solution:SolutionMove[]=[];
+  const colors=shuffled(8,rand);
+  for(const slot of slots) {
+    let found:SolutionMove|undefined;
+    for(const shape of [...shuffled(SHAPES.length-1,rand).map(i=>i+1),0]) {
+      const piece=makePiece(shape,colors[slot]);
+      for(const pos of shuffled(64,rand)) {
+        if(canPlace(simulated,piece,Math.floor(pos/8),pos%8)) {found={slot,piece,r:Math.floor(pos/8),c:pos%8};break;}
+      }
+      if(found)break;
     }
-    const colorIdx = colors.length
-      ? colors.splice(Math.floor(rand() * colors.length), 1)[0]
-      : Math.floor(rand() * 8) % 8;
-    out.push(makePiece(shapeIdx, colorIdx));
+    if(!found)throw new Error('Board must be cleared before dealing');
+    solution.push(found);pieces[slot]=found.piece;simulated=applySolution(simulated,found);
   }
-  return out;
+  return {pieces,solution};
+}
+/** Budget exhaustion causes a fresh verified deal, never a forced loss. */
+export function solveTray(board:Board,pieces:(Piece|null)[],budget=1600):SolutionMove[]|null {
+  let visited=0;
+  const visit=(b:Board,left:(Piece|null)[]):SolutionMove[]|null=>{
+    if(left.every(p=>!p))return [];
+    if(++visited>budget)return null;
+    for(let slot=0;slot<left.length;slot++) {
+      const piece=left[slot];if(!piece)continue;
+      for(let pos=0;pos<64;pos++) {
+        const r=Math.floor(pos/8),c=pos%8;if(!canPlace(b,piece,r,c))continue;
+        const move={slot,piece,r,c},rest=[...left];rest[slot]=null;
+        const tail=visit(applySolution(b,move),rest);if(tail)return [move,...tail];
+        if(visited>budget)return null;
+      }
+    }
+    return null;
+  };
+  return visit(board,pieces);
+}
+export function ensureFairTray(board:Board,pieces:(Piece|null)[],rand:()=>number=Math.random) {
+  const remaining=pieces.flatMap((p,i)=>p?[i]:[]);
+  if(!remaining.length)return {...fairDeal(board,[0,1,2],rand),refreshed:false};
+  const solution=solveTray(board,pieces);
+  if(solution)return {pieces,solution,refreshed:false};
+  return {...fairDeal(board,remaining,rand),refreshed:true};
 }
 
 export function canPlace(board: Board, p: Piece, r: number, c: number): boolean {

@@ -2,16 +2,17 @@
 import {useId} from 'react';
 import {Play,RotateCcw,Home,Trophy,X,Music,Volume2,Pause,VolumeX,Music2,User,Check, type LucideIcon} from 'lucide-react';
 import {pos} from './Kit';
+import {BP} from '@/lib/bp';
 import {fontCss} from '@/lib/skin';
 import rankingSeed from '../../../public/ranking.json';
 
 export function Crown({size=158}:{size?:number}) {
- const id=useId();
- return <svg width={size} height={size*.86} viewBox="0 0 100 86" aria-label="Best score" role="img"><defs><linearGradient id={id} x2="0" y2="1"><stop stopColor="#fff4ac"/><stop offset=".5" stopColor="#ffd344"/><stop offset="1" stopColor="#f28a12"/></linearGradient></defs><path d="M10 23L30 42L50 10L70 42L90 23L80 70Q50 80 20 70Z" fill={`url(#${id})`} stroke="#fff0b3" strokeWidth="2.5"/><rect x="20" y="72" width="60" height="10" rx="4" fill="#ffc638"/>{[[10,23],[50,10],[90,23]].map(([x,y])=><circle key={x} cx={x} cy={y} r="5" fill="#fff3b1"/>)}<path d="M45 52H55L58 57L50 68L42 57Z" fill="#bd52ff" stroke="#f5d6ff"/><path d="M87 0L89 6L96 8L89 10L87 17L85 10L78 8L85 6Z" fill="white"/></svg>;
+ return <img width={size} height={size} src={`${BP}/textures/rush/crown-hd.png`} alt="Best score" draggable={false} style={{width:size,height:size,objectFit:'contain',display:'block'}}/>;
 }
 export function Gem({color='#5cdff4',size=100}:{color?:string;size?:number}) {
- const id=useId();return <svg width={size} height={size} viewBox="-56 -50 112 112" aria-hidden="true" style={{overflow:'visible'}}><defs><linearGradient id={id} x2="1" y2="1"><stop stopColor="#fff"/><stop offset=".36" stopColor={color}/><stop offset="1" stopColor="#381373"/></linearGradient></defs><path d="M-34-42H32L50-16L0 52L-50-16Z" fill={`url(#${id})`} stroke="#ffffffcc" strokeWidth="3"/><path d="M-34-42L-21-13L0 52L21-13L32-42M-50-16H50M-21-13L0-42L21-13" fill="none" stroke="#ffffff99" strokeWidth="2.5"/></svg>;
+ const id=useId();return <svg width={size} height={size} viewBox="-56 -56 112 112" aria-hidden="true" style={{overflow:'visible'}}><defs><linearGradient id={id} x2="1" y2="1"><stop stopColor="white" stopOpacity=".5"/><stop offset=".5" stopColor={color}/><stop offset="1" stopColor="#4617a3"/></linearGradient></defs><path d="M-28-46H26L46-25V26L24 47H-28L-47 25V-24Z" fill={color}/><path d="M-28-46H26L17-27H-18Z" fill="white" opacity=".7"/><path d="M-47-24L-28-46L-18-27L-28-15V16L-47 25Z" fill="white" opacity=".38"/><path d="M26-46L46-25V26L27 16V-15L17-27Z" fill="#23105e" opacity=".44"/><path d="M-47 25L-28 47H24L46 26L27 16L15 28H-17L-28 16Z" fill="#170b50" opacity=".55"/><path d="M-18-27H17L27-15V16L15 28H-17L-28 16V-15Z" fill={`url(#${id})`} stroke="#ffffff90" strokeWidth="1.5"/><path d="M-28-46H26" stroke="white" strokeWidth="3"/><path d="M-29-40L-27-30L-17-28L-27-26L-29-16L-31-26L-41-28L-31-30Z" fill="white"/></svg>;
 }
+
 export function Action({label,icon:Icon=Play,onClick,x=540,y=730,w=712,h=142,primary=false,font=46}:{label:string;icon?:LucideIcon;onClick:()=>void;x?:number;y?:number;w?:number;h?:number;primary?:boolean;font?:number}) {
  return <button className="rush-action" onClick={onClick} style={{...pos(x,y,w,h),borderRadius:primary?38:26,border:`${primary?4:2}px solid ${primary?'#ffe999':'#5b82ba'}`,background:primary?'linear-gradient(#ffd34d,#ffb21c,#f18a0d)':'linear-gradient(#2d559a,#21417d)',boxShadow:`0 8px 0 ${primary?'#af590b':'#091735'}`,color:'white',display:'flex',alignItems:'center',justifyContent:'center',gap:font*.32,...fontCss('luckiest',font),cursor:'pointer'}}><Icon size={font*1.25}/>{label}</button>;
 }

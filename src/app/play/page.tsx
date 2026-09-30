@@ -73,6 +73,7 @@ export default function PlayPage() {
   const [reached, setReached] = useState<number[]>([]);
   const [panelHidden, setPanelHidden] = useState(false);
   const [clean, setClean] = useState(false);
+  const [wide,setWide] = useState(false);
   const [autoRestart, setAutoRestart] = useState(false);
   const [rankOpen, setRankOpen] = useState(false);
   const [musicOn, setMusicOn] = useState(true);
@@ -112,13 +113,15 @@ export default function PlayPage() {
   useEffect(() => {
     const update = () => {
       const w = window.innerWidth, h = window.innerHeight;
-      setScale(Math.min(w / 1080, h / 1920));
+      const room = w >= 860 && !clean && !panelHidden;
+      setWide(room);
+      setScale(Math.min((w-(room?288:0)) / 1080, h / 1920));
       setTall(h / w > 1.45);
     };
     update();
     window.addEventListener('resize', update);
     return () => window.removeEventListener('resize', update);
-  }, []);
+  }, [clean,panelHidden]);
 
   // ------------------------------------------------------------ bot init --
   useEffect(() => {
@@ -259,7 +262,7 @@ export default function PlayPage() {
       <div
         ref={wrapRef}
         style={{
-          width: 1080 * scale, height: 1920 * scale,
+          width: 1080 * scale, height: 1920 * scale, marginRight:wide?288:0,
           borderRadius: tall ? 0 : Math.min(36, 36 * scale * 2),
           overflow: 'hidden', position: 'relative',
           boxShadow: tall ? undefined : '0 30px 90px rgba(0,0,0,0.7)',
@@ -338,7 +341,7 @@ export default function PlayPage() {
                   <span className="flex-1 text-[12px] font-bold tracking-wide">
                     BOT · {version?.name ?? 'Block Rush 1:1'}
                   </span>
-                  <button onClick={() => setPanelHidden(true)} className="text-white/40 hover:text-white">
+                  <button aria-label="Nascondi pannello recorder" onClick={() => setPanelHidden(true)} className="text-white/40 hover:text-white">
                     <EyeOff size={14} />
                   </button>
                 </div>
@@ -404,8 +407,7 @@ export default function PlayPage() {
                       </label>
                       <p className="text-[9.5px] leading-relaxed text-white/40">
                         Alla richiesta del browser scegli <b className="text-white/60">«Questa scheda»</b>:
-                        il video viene ritagliato sull&apos;area di gioco (senza pannelli) e scaricato
-                        automaticamente in 9:16. Scorciatoia <b className="text-white/60">R</b> = start/stop
+                        il video viene ritagliato sull&apos;area di gioco (senza pannelli) in 9:16. Al termine premi Scarica per salvarlo. Scorciatoia <b className="text-white/60">R</b> = start/stop
                         (funziona anche a schermo intero). Con <b className="text-white/60">?clean=1</b> l&apos;interfaccia è già pulita.
                       </p>
                     </>
@@ -434,7 +436,7 @@ export default function PlayPage() {
                       </div>
                       <video src={recInfo.url} controls className="mb-1.5 w-full rounded-md" style={{ maxHeight: 220 }} />
                       <div className="text-[9.5px] text-white/45">
-                        {fmtTime(recInfo.dur)} · {fmtBytes(recInfo.size)} · {recInfo.mime.split(';')[0]} · già scaricato nella cartella Download
+                        {fmtTime(recInfo.dur)} · {fmtBytes(recInfo.size)} · {recInfo.mime.split(';')[0]} · pronto da scaricare
                       </div>
                     </div>
                   )}
