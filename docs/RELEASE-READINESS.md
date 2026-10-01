@@ -4,7 +4,7 @@ Il gioco principale è già Flutter + Flame nativo (Dart), con build web e workf
 
 ## Interventi completati
 
-Vassoio costruito mediante simulazione di tutte le mosse e cancellazioni di righe/colonne. Dopo ogni mossa si verifica la sequenza dei pezzi rimanenti; se non si trova una prova entro il budget, solo i pezzi non usati vengono rigenerati, mantenendo griglia e punteggio. Questo realizza una modalità continua senza sconfitte imposte dal generatore. Soluzione mostra la prossima mossa di una sequenza completa verificata. Non promette un punteggio ottimale: il giocatore decide come massimizzarlo.
+Ogni nuovo vassoio dispone di una sequenza verificata che colloca tutti i pezzi, simulando anche le cancellazioni. I pezzi restano fissi: scelte successive del giocatore possono portare alla sconfitta. Il gioco conserva l’ultima sequenza completa valida e la relativa griglia; Vedi soluzione nel game over ne mostra un replay separato, senza cambiare punteggio o partita. Il pulsante ? accanto alla pausa apre il dialog per ottenere il prossimo suggerimento tramite rewarded ad. Punteggio e record si ridimensionano in aree separate.
 
 Corona originale ricreata in alta definizione, gemme sfaccettate, scie multicolore rettilinee, numeri combo senza ritaglio, pannelli coerenti. Le 64 celle sono disegnate esplicitamente per eliminare le celle fuse nell'immagine di riferimento.
 
@@ -22,7 +22,7 @@ Corona originale ricreata in alta definizione, gemme sfaccettate, scie multicolo
 ## Decisioni prima di una release pubblica
 
 - La classifica usa dati dimostrativi e record locale: per una classifica reale occorrono servizio online, autenticazione/identificatori e validazione punteggi, oppure etichettare chiaramente la demo.
-- Il pannello di continuazione è gratuito nella preview; nessun annuncio reale è stato integrato. La nuova modalità continua non forza un game over per mostrare pubblicità. Se si aggiungono rewarded ads, premio solo dopo callback di completamento, gestione annullamento/no-fill e consenso applicabile.
+- Il pannello di continuazione è gratuito nella preview; nessun annuncio reale è stato integrato. Il suggerimento ha un adapter per rewarded ads: solo il completamento sblocca l’aiuto, mentre annullamento, errore e assenza di provider non concedono premi. Occorre collegare un SDK reale e il consenso applicabile. Il comando demo è disponibile solo in sviluppo.
 - Confermare diritti di distribuzione di nome, logo, sprites, font e audio derivati dal progetto originale. Preparare icone e screenshot store definitivi.
 - Test finali su hardware Android/iOS, accessibilità, pause/resume e audio in background; misurare memoria, caricamento e fluidità su dispositivi economici.
 - Il recorder desktop richiede la selezione della scheda di gioco tramite il browser. Crop, slider e rilascio delle risorse sono coperti da test; la cattura con il selettore di condivisione reale resta da provare manualmente.
@@ -40,4 +40,4 @@ Corona originale ricreata in alta definizione, gemme sfaccettate, scie multicolo
 
 - Flutter: http://127.0.0.1:5173/
 - Recorder: http://127.0.0.1:3000/play/
-- In sviluppo: `?preview=combo`, `?preview=revive`, `?preview=gameover`; Flutter aggiunge `?preview=fair` per la soluzione guidata. Le scene di debug sono escluse dalle build release e non registrano record dimostrativi.
+- In sviluppo: `?preview=combo`, `?preview=revive`, `?preview=gameover`, `?preview=digits`; Flutter aggiunge `?preview=fair` per la soluzione guidata. Le scene di debug sono escluse dalle build release e non registrano record dimostrativi.

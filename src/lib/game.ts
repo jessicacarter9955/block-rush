@@ -112,12 +112,10 @@ export function solveTray(board:Board,pieces:(Piece|null)[],budget=1600):Solutio
   };
   return visit(board,pieces);
 }
+/** Keep the dealt pieces fixed. Only a new, empty tray receives a fair deal. */
 export function ensureFairTray(board:Board,pieces:(Piece|null)[],rand:()=>number=Math.random) {
-  const remaining=pieces.flatMap((p,i)=>p?[i]:[]);
-  if(!remaining.length)return {...fairDeal(board,[0,1,2],rand),refreshed:false};
-  const solution=solveTray(board,pieces);
-  if(solution)return {pieces,solution,refreshed:false};
-  return {...fairDeal(board,remaining,rand),refreshed:true};
+  if(pieces.every(p=>!p))return {...fairDeal(board,[0,1,2],rand),lost:false};
+  return {pieces,solution:solveTray(board,pieces) ?? [],lost:!hasAnyMove(board,pieces)};
 }
 
 export function canPlace(board: Board, p: Piece, r: number, c: number): boolean {

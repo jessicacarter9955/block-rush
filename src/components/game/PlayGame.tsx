@@ -12,7 +12,9 @@ import {
   ComboTextView, EmptyCellsView, IconButtonView, MaskIconView, PieceView,
   Plus100View, PopupSurface, pos, relPos, ScoreTextView,
 } from '@/components/game/Kit';
-import { Crown, Gem, Round, PauseMenu, Ranking, Reward, EndRun } from './RushUI';
+import { Crown, Gem, Round, PauseMenu, Ranking, Reward, EndRun, ScoreFit } from './RushUI';
+import {HintDialog, SolutionReplay, type ReplayProof} from './SolutionReplay';
+import {requestHintReward} from '@/lib/hint-reward';
 import { BlockTile } from '@/components/blocks/BlockTile';
 import {
   canPlace, calcEarned, clearCells, findFullLines, hasAnyMove,
@@ -52,7 +54,22 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
   const [initialDeal] = useState(()=>fairDeal(Array(64).fill(null),[0,1,2]));
   const [tray, setTray] = useState<(Piece | null)[]>(initialDeal.pieces);
   const [showSolution, setShowSolution] = useState(false);
-  const [fairRefreshed, setFairRefreshed] = useState(false);
+  const [hintDialog,setHintDialog]=useState(false);
+  const [hintBusy,setHintBusy]=useState(false);
+  const [hintMessage,setHintMessage]=useState('');
+  const [replayOpen,setReplayOpen]=useState(false);
+  const proofRef=useRef<ReplayProof>({board:Array(64).fill(null),solution:initialDeal.solution});
+  const overlayRef=useRef(false);overlayRef.current=hintDialog||replayOpen;
+  const hintBusyRef=useRef(false);
+  const unlockHint=()=>{setShowSolution(true);setHintDialog(false);};
+  const watchHintAd=async()=>{
+    if(hintBusyRef.current)return;hintBusyRef.current=true;setHintBusy(true);
+    const result=await requestHintReward();
+    hintBusyRef.current=false;setHintBusy(false);
+    if(result==='completed')unlockHint();
+    else setHintMessage(result==='cancelled'?'Annuncio non completato: suggerimento non sbloccato.':'Annunci non disponibili. Riprova più tardi.');
+  };
+  const openReplay=()=>{setHintDialog(false);setReplayOpen(true);};
   const [solution,setSolution] = useState<SolutionMove[]>(initialDeal.solution);
   const hint = showSolution ? solution[0] : undefined;
   const [score, setScore] = useState(0);
@@ -93,7 +110,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
   scoreRef.current = score;
   gameOverRef.current = gameOver;
   reviveRef.current = reviveOffer;
-  pausedRef.current = paused;
+  pausedRef.current = paused || hintDialog || replayOpen;
   dragRef.current = drag;
 
   useEffect(()=>{ try { setBest(Number(localStorage.getItem('block-rush-best'))||0); } catch {} },[]);
@@ -102,6 +119,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
   useEffect(()=>{
     if(process.env.NODE_ENV!=='development') return;
     const preview=new URLSearchParams(location.search).get('preview');
+    if(preview==='digits') {setScore(123456789012345);setBest(987654321098765);}
     if(preview==='gameover') {setScore(2480);setGameOver(true);}
     if(preview==='revive') {setScore(2480);setReviveOffer(true);}
     if(preview==='combo') {
@@ -208,7 +226,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
 
   const doPlace = useCallback((slot: number, r: number, c: number) => {
     const p = trayRef.current[slot];
-    if (!p || !canPlace(boardRef.current, p, r, c)) return;
+    if (overlayRef.current || !p || !canPlace(boardRef.current, p, r, c)) return;
     const cells = placedCells(p, r, c);
     const next = [...boardRef.current];
     for (const [rr, cc] of cells) next[rr * GRID + cc] = p.color;
@@ -274,7 +292,9 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
     const remaining: (Piece | null)[] = trayRef.current.map((t, i) => (i === slot ? null : t));
     const verified = ensureFairTray(nextBoard,remaining);
     boardRef.current=nextBoard;trayRef.current=verified.pieces;
-    setTray(verified.pieces);setSolution(verified.solution);setFairRefreshed(verified.refreshed);
+    setTray(verified.pieces);setSolution(verified.solution);setShowSolution(false);
+    if(verified.solution.length)proofRef.current={board:[...nextBoard],solution:verified.solution};
+    if(verified.lost) {setGameOver(true);if(sfxOn)soundEngine.playEvent(skin.sounds.gameOver);}
     setDrag(null);
     setGhost(null);
   }, [skin, sfxOn, heartOn, spawnLineFx]);
@@ -288,7 +308,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
     const cleared=[...boardRef.current];
     for(let y=2;y<5;y++) for(let x=2;x<5;x++) cleared[y*8+x]=null;
     boardRef.current=cleared;setBoard(cleared);
-    const deal=fairDeal(cleared,[0,1,2]);setTray(deal.pieces);setSolution(deal.solution);
+    const deal=fairDeal(cleared,[0,1,2]);setTray(deal.pieces);setSolution(deal.solution);proofRef.current={board:[...cleared],solution:deal.solution};
     if (sfxOn) soundEngine.playEvent(skin.sounds.button);
   }, [skin, sfxOn]);
 
@@ -296,7 +316,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
 
   // revive countdown: 5 seconds (original ReviveTime)
   useEffect(() => {
-    if (!reviveOffer || (process.env.NODE_ENV==='development' && new URLSearchParams(location.search).get('preview')==='revive')) return;
+    if (replayOpen || !reviveOffer || (process.env.NODE_ENV==='development' && new URLSearchParams(location.search).get('preview')==='revive')) return;
     setReviveLeft(10);
     const iv = setInterval(() => {
       setReviveLeft((v) => {
@@ -311,12 +331,12 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
       });
     }, 1000);
     return () => clearInterval(iv);
-  }, [reviveOffer, sfxOn]);
+  }, [reviveOffer, sfxOn, replayOpen]);
 
   // ------------------------------------------------------------ pointers --
 
   const onPieceDown = (slot: number) => (e: React.PointerEvent) => {
-    if (gameOver || paused || reviveOffer) return;
+    if (gameOver || paused || reviveOffer || overlayRef.current) return;
     const p = trayRef.current[slot];
     if (!p) return;
     e.preventDefault();
@@ -367,9 +387,9 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
   }, [drag, toDesign, doPlace, sfxOn]);
 
   const restart = () => {
-    setFairRefreshed(false);setShowSolution(false);
+    setShowSolution(false);setHintDialog(false);setReplayOpen(false);
     setBoard(Array(64).fill(null));
-    const deal=fairDeal(Array(64).fill(null),[0,1,2]);setTray(deal.pieces);setSolution(deal.solution);
+    const deal=fairDeal(Array(64).fill(null),[0,1,2]);setTray(deal.pieces);setSolution(deal.solution);proofRef.current={board:Array(64).fill(null),solution:deal.solution};
     setScore(0);
     setScoreShown(0);
     setCombo(-1);
@@ -422,21 +442,10 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
           <MaskIconView sprite="Heart-f00.png" color={skin.effects.comboGlow} size={240} glow={30} />
         </div>
       )}
-      <div style={pos(540, 243, 700, 200)}>
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <ScoreTextView skin={skin} value={scoreShown} animateKey={score} />
-        </div>
-      </div>
-      {/* crown patch pulita (solo corona, sfondo rimosso, aspect naturale) */}
-      <div style={pos(111, 107, 158, 136)}>
-        <Crown size={158}/>
-      </div>
-      {/* best score — SOTTO la corona, centrato nella sua colonna */}
-      <div style={pos(111, 258, 320, 72)}>
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <BestTextView skin={skin} value={Math.max(best, score)} />
-        </div>
-      </div>
+      <ScoreFit value={scoreShown} x={560} y={243} w={530} h={200} size={160}/>
+      <div style={pos(148,107,158,158)}><Crown size={158}/></div>
+      <ScoreFit value={Math.max(best,score)} x={148} y={258} w={240} h={110} size={92} color="#fdf303"/>
+      <Round kind="help" x={805} y={115} size={120} onClick={()=>{setDrag(null);setGhost(null);setHintMessage('');setHintDialog(true);}}/>
       <div style={pos(981, 115, 185, 185)}>
         <Round kind="pause" size={142} x={92.5} y={92.5} onClick={() => { setPaused(true); if (sfxOn) soundEngine.playEvent(skin.sounds.button); }} />
       </div>
@@ -556,9 +565,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
         );
       })}
 
-      <button onClick={()=>setShowSolution(v=>!v)} style={{...pos(540,1820,540,88),border:'2px solid #5b82ba',borderRadius:24,background:'linear-gradient(#2d559a,#21417d)',color:'white',...fontCss('luckiest',32),cursor:'pointer'}}>{showSolution?'NASCONDI AIUTO':'SOLUZIONE'}</button>
-      {hint && <div style={{...pos(540,1408,1050,42),textAlign:'center',font:'29px Arial',color:'#bafff2'}}>Pezzo {hint.slot+1} → celle luminose · {solution.length} mosse verificate</div>}
-      {fairRefreshed && <div role="status" style={{...pos(540,1895,1000,36),textAlign:'center',font:'26px Arial',color:'#9befff'}}>Pezzi aggiornati: c’è sempre una soluzione</div>}
+      {hint && <div style={{...pos(540,1408,1050,42),textAlign:'center',font:'29px Arial',color:'#bafff2'}}>Pezzo {hint.slot+1} → celle luminose</div>}
       {/* dragged piece follows the pointer, lifted like the original */}
       {drag && (
         <div style={{ ...pos(drag.x, drag.y - 200, 600, 600), pointerEvents: 'none', zIndex: 60 }}>
@@ -570,8 +577,10 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
 
       {paused && !gameOver && !ranking && <PauseMenu resume={()=>setPaused(false)} home={()=>setPlaying(false)} restart={restart} ranking={()=>setRanking(true)} musicOn={musicOn} sfxOn={sfxOn} sfx={()=>setSfxOn(!sfxOn)} music={()=>{ if(musicOn) soundEngine.stopMusic(); else void soundEngine.startMusic(skin.sounds.music); setMusicOn(!musicOn); }}/>}
       {ranking && <Ranking best={Math.max(best,score)} onClose={()=>setRanking(false)}/>}
-      {reviveOffer && <Reward seconds={reviveLeft} continueRun={revive} end={()=>{setReviveOffer(false);setGameOver(true);}}/>}
-      {gameOver && <EndRun score={score} best={Math.max(best,score)} restart={restart} home={()=>setPlaying(false)}/>}
+      {reviveOffer && <Reward seconds={reviveLeft} continueRun={revive} replay={openReplay} end={()=>{setReviveOffer(false);setGameOver(true);}}/>}
+      {gameOver && <EndRun replay={proofRef.current.solution.length?openReplay:undefined} score={score} best={Math.max(best,score)} restart={restart} home={()=>setPlaying(false)}/>}
+      {hintDialog && <HintDialog hasSolution={solution.length>0} busy={hintBusy} message={hintMessage} watch={watchHintAd} close={()=>{if(!hintBusy)setHintDialog(false);}} demo={process.env.NODE_ENV==='development'?unlockHint:undefined} replay={openReplay}/>}
+      {replayOpen && <SolutionReplay proof={proofRef.current} skin={skin} close={()=>setReplayOpen(false)}/>}
       </div>
     </div>
   );

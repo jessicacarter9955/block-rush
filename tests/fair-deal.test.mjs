@@ -12,20 +12,26 @@ test('scarce board still has three verified moves and never mutates input',()=>{
  const board=Array.from({length:64},(_,i)=>Math.floor(i/8)===i%8?null:1),copy=[...board];
  const deal=fairDeal(board,[0,1,2],seeded(7));assert.equal(deal.solution.length,3);replay(board,deal.solution);assert.deepEqual(board,copy);
 });
-test('individually placeable squares can be an impossible tray',()=>{
+test('a bad choice can lose without replacing remaining pieces',()=>{
  const board=Array.from({length:64},(_,i)=>{const r=Math.floor(i/8),c=i%8;return (r<2&&c<2)||(r+c)%2===0?null:0;});
- const square=makePiece(25,0);assert.ok(canPlace(board,square,0,0));assert.equal(solveTray(board,[square,square,square]),null);
- const fixed=ensureFairTray(board,[square,square,square],seeded(1));assert.equal(fixed.refreshed,true);replay(board,fixed.solution);
+ const square=makePiece(25,0),pieces=[square,square,square];
+ assert.ok(canPlace(board,square,0,0));assert.equal(solveTray(board,pieces),null);
+ const before=ensureFairTray(board,pieces,seeded(1));assert.equal(before.pieces,pieces);assert.equal(before.lost,false);assert.deepEqual(before.solution,[]);
+ const next=applySolution(board,{slot:0,piece:square,r:0,c:0}),remaining=[null,square,square];
+ const after=ensureFairTray(next,remaining);assert.equal(after.pieces,remaining);assert.equal(after.lost,true);assert.deepEqual(after.solution,[]);
 });
-test('500 deals with arbitrary legal choices always retain a verified continuation',()=>{
- const rand=seeded(2026);let board=Array(64).fill(null),pieces=[null,null,null];
- for(let turn=0;turn<1500;turn++){
-  const verified=ensureFairTray(board,pieces,rand);pieces=verified.pieces;replay(board,verified.solution);
-  const legal=[];for(let slot=0;slot<3;slot++){const piece=pieces[slot];if(!piece)continue;for(let pos=0;pos<64;pos++){const r=Math.floor(pos/8),c=pos%8;if(canPlace(board,piece,r,c))legal.push({slot,piece,r,c});}}
-  assert.ok(legal.length);const chosen=legal[Math.floor(rand()*legal.length)];board=applySolution(board,chosen);pieces=[...pieces];pieces[chosen.slot]=null;
+
+test('500 generated trays each have a complete replayable solution',()=>{
+ const rand=seeded(2026);let board=Array(64).fill(null);
+ for(let turn=0;turn<500;turn++){
+  const deal=ensureFairTray(board,[null,null,null],rand);
+  assert.equal(deal.lost,false);assert.equal(deal.solution.length,3);assert.equal(new Set(deal.solution.map(m=>m.slot)).size,3);
+  board=replay(board,deal.solution);
  }
 });
-test('refresh preserves consumed slots and existing board',()=>{
+
+test('loss preserves consumed slots, existing board and tray identity',()=>{
  const board=Array.from({length:64},(_,i)=>Math.floor(i/8)===i%8?null:1),copy=[...board];
- const result=ensureFairTray(board,[makePiece(28,1),null,makePiece(28,2)],seeded(9));assert.equal(result.pieces[1],null);assert.deepEqual(board,copy);replay(board,result.solution);
+ const pieces=[makePiece(28,1),null,makePiece(28,2)];
+ const result=ensureFairTray(board,pieces,seeded(9));assert.equal(result.pieces,pieces);assert.equal(result.lost,true);assert.deepEqual(board,copy);assert.deepEqual(result.solution,[]);
 });
