@@ -1,0 +1,14 @@
+{
+  "game": {
+    "adaptToSafeArea": true
+  },
+  "advertisement": {
+    "minimumDelayBetweenInterstitial": 90,
+    "interstitial": {
+      "preloadOnStart": "game_over"
+    },
+    "rewarded": {
+      "preloadOnStart": "hint"
+    }
+  }
+}

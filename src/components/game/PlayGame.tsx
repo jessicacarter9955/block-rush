@@ -15,6 +15,7 @@ import {
 import { Crown, Gem, Round, PauseMenu, Ranking, Reward, EndRun, ScoreFit } from './RushUI';
 import {HintDialog, SolutionReplay, type ReplayProof} from './SolutionReplay';
 import {requestHintReward} from '@/lib/hint-reward';
+import { isRewardedReady, showRewardedAd, showInterstitialAd } from '@/lib/playgama';
 import { BlockTile } from '@/components/blocks/BlockTile';
 import {
   canPlace, calcEarned, clearCells, findFullLines, hasAnyMove,
@@ -89,6 +90,10 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
   const [reviveOffer, setReviveOffer] = useState(false);
   const [reviveLeft, setReviveLeft] = useState(10);
   const revivesUsed = useRef(0);
+  // --- Playgama ads: disponibilità rewarded + annuncio in corso ---
+  const [adsReady, setAdsReady] = useState(false);
+  const [adBusy, setAdBusy] = useState(false);
+  const adBusyRef = useRef(false);
   const [paused, setPaused] = useState(false);
   const [ranking, setRanking] = useState(false);
   const [musicOn, setMusicOn] = useState(false);
@@ -314,9 +319,31 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
 
   useEffect(() => { reviveFnRef.current = revive; }, [revive]);
 
-  // revive countdown: 5 seconds (original ReviveTime)
+  // quando appare il pannello revive, chiedi al bridge se i rewarded esistono
   useEffect(() => {
-    if (replayOpen || !reviveOffer || (process.env.NODE_ENV==='development' && new URLSearchParams(location.search).get('preview')==='revive')) return;
+    if (!reviveOffer) return;
+    if (isRewardedReady()) setAdsReady(true);
+    // rilegge la disponibilità anche dopo l'init ritardata del bridge
+    const t = setTimeout(() => { if (isRewardedReady()) setAdsReady(true); }, 1200);
+    return () => clearTimeout(t);
+  }, [reviveOffer]);
+
+  // FREE CONTINUE: rewarded su Playgama, gratuito dove non ci sono annunci
+  const watchReviveAd = useCallback(async () => {
+    if (adBusyRef.current) return;
+    if (!adsReady) { revive(); return; }
+    adBusyRef.current = true; setAdBusy(true);
+    const result = await showRewardedAd('revive');
+    adBusyRef.current = false; setAdBusy(false);
+    if (result === 'completed') revive();
+    else if (result === 'unavailable') revive(); // non penalizzare il giocatore
+    // 'cancelled': resta sul pannello, può riprovare o END RUN
+  }, [adsReady, revive]);
+
+  // revive countdown: 5 seconds (original ReviveTime) — in pausa durante
+  // un annuncio rewarded (l'utente non deve perdere la run mentre guarda)
+  useEffect(() => {
+    if (replayOpen || adBusy || !reviveOffer || (process.env.NODE_ENV==='development' && new URLSearchParams(location.search).get('preview')==='revive')) return;
     setReviveLeft(10);
     const iv = setInterval(() => {
       setReviveLeft((v) => {
@@ -331,7 +358,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
       });
     }, 1000);
     return () => clearInterval(iv);
-  }, [reviveOffer, sfxOn, replayOpen]);
+  }, [reviveOffer, sfxOn, replayOpen, adBusy]);
 
   // ------------------------------------------------------------ pointers --
 
@@ -406,6 +433,14 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
     noScore.current = 0;
     revivesUsed.current = 0;
     if (sfxOn) soundEngine.playEvent(skin.sounds.button);
+  };
+
+  // PLAY AGAIN dal game over: prima un interstitial Playgama (il delay minimo
+  // di 90s lo gestisce l'SDK), poi la nuova run. Dove non ci sono piattaforme
+  // l'annuncio salta subito e non si nota nulla.
+  const playAgain = async () => {
+    await showInterstitialAd('game_over');
+    restart();
   };
 
   const ghostCells = useMemo(() => {
@@ -577,8 +612,8 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
 
       {paused && !gameOver && !ranking && <PauseMenu resume={()=>setPaused(false)} home={()=>setPlaying(false)} restart={restart} ranking={()=>setRanking(true)} musicOn={musicOn} sfxOn={sfxOn} sfx={()=>setSfxOn(!sfxOn)} music={()=>{ if(musicOn) soundEngine.stopMusic(); else void soundEngine.startMusic(skin.sounds.music); setMusicOn(!musicOn); }}/>}
       {ranking && <Ranking best={Math.max(best,score)} onClose={()=>setRanking(false)}/>}
-      {reviveOffer && <Reward seconds={reviveLeft} continueRun={revive} replay={openReplay} end={()=>{setReviveOffer(false);setGameOver(true);}}/>}
-      {gameOver && <EndRun replay={proofRef.current.solution.length?openReplay:undefined} score={score} best={Math.max(best,score)} restart={restart} home={()=>setPlaying(false)}/>}
+      {reviveOffer && <Reward seconds={reviveLeft} continueRun={watchReviveAd} adRequired={adsReady} busy={adBusy} replay={openReplay} end={()=>{setReviveOffer(false);setGameOver(true);}}/>}
+      {gameOver && <EndRun replay={proofRef.current.solution.length?openReplay:undefined} score={score} best={Math.max(best,score)} restart={playAgain} home={()=>setPlaying(false)}/>}
       {hintDialog && <HintDialog hasSolution={solution.length>0} busy={hintBusy} message={hintMessage} watch={watchHintAd} close={()=>{if(!hintBusy)setHintDialog(false);}} demo={process.env.NODE_ENV==='development'?unlockHint:undefined} replay={openReplay}/>}
       {replayOpen && <SolutionReplay proof={proofRef.current} skin={skin} close={()=>setReplayOpen(false)}/>}
       </div>

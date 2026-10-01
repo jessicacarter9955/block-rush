@@ -204,6 +204,16 @@ class SoundEngine {
     this.musicOn = false;
   }
 
+  /** True se la musica di loop sta effettivamente suonando. */
+  isMusicPlaying(): boolean {
+    return this.musicOn && this.musicSrc !== null;
+  }
+
+  /** Riavvia la musica dopo una pausa forzata (p.es. annuncio a schermo). */
+  resumeMusicIfEnabled(): void {
+    if (this.musicRef) void this.startMusic(this.musicRef);
+  }
+
   /** Probe duration of a file (for the library list). */
   async durationOf(file: string): Promise<number> {
     const buf = await this.buffer(file);

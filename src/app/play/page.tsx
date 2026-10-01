@@ -24,6 +24,8 @@ import { useStudio } from '@/lib/store';
 import { PRESETS, fontCss } from '@/lib/skin';
 import { soundEngine } from '@/lib/audio';
 import { BlockBlastBot, DEFAULT_MILESTONES, type BotEvent, type BotStats } from '@/lib/bot';
+import { initPlaygama } from '@/lib/playgama';
+import { setHintAdProvider } from '@/lib/hint-reward';
 
 const RANKING: { name: string; score: number }[] = [
   { name: 'Kara', score: 1720 },
@@ -107,6 +109,22 @@ export default function PlayPage() {
     if(process.env.NODE_ENV==='development' && q.has('preview')) setPlaying(true);
     const sp = q.get('speed');
     if (sp) setSpeed(Math.max(0.25, Math.min(16, parseFloat(sp) || 1)));
+  }, []);
+
+  // --------------------------------------------- Playgama Bridge (ads) --
+  // SDK multi-piattaforma (YouTube Playables, CrazyGames, Poki, Telegram,
+  // ...): si carica dalla CDN e si inizializza col config in public/.
+  // Fuori dalle piattaforme degrada in silenzio: niente annunci, gioco ok.
+  useEffect(() => {
+    let disposed = false;
+    void initPlaygama().then((bridge) => {
+      if (disposed) return;
+      if (bridge?.advertisement.isRewardedSupported) {
+        // Il suggerimento si sblocca guardando un rewarded (se disponibile).
+        setHintAdProvider(async () => (await import('@/lib/playgama')).showRewardedAd('hint'));
+      }
+    });
+    return () => { disposed = true; setHintAdProvider(undefined); };
   }, []);
 
   // fit the 1080×1920 design to the viewport
