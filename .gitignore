@@ -4,3 +4,15 @@ out/
 *.log
 .DS_Store
 .env*
+
+# artefatti e tooling SOLO-locali (mai nel repo)
+*.zip
+download/
+upload/
+tool-results/
+skills/
+scripts/
+worklog.md
+best-block-blast/
+bun.lock
+public/download.html

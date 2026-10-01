@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -43,6 +43,32 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: out
+
+      # --- Build Playgama (root, SENZA basePath) + zip permanente ----------
+      # La build per GitHub Pages usa /block-rush come basePath; per Playgama
+      # (YouTube Playables, Poki, CrazyGames, ...) serve una build a dominio
+      # root: index.html alla radice dello zip.
+      - name: Build (Playgama — root, senza basePath)
+        run: npm run build
+        env:
+          NEXT_PUBLIC_BASE_PATH: ""
+
+      - name: Zip build Playgama (index.html alla radice)
+        run: cd out && zip -r ../block-rush-web-latest.zip .
+
+      - name: Publish zip to the 'latest' Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Block Rush — build Playgama più recente
+          body: |
+            Build statica root (senza basePath), pronta per developer.playgama.com:
+            zip con index.html alla radice. Auto-pubblicata a ogni push su main.
+          files: block-rush-web-latest.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   deploy:
     name: Deploy to GitHub Pages
