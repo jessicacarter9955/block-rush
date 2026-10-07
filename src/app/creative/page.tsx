@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Bot, Gauge, Play, RotateCcw, Sparkles, Trophy } from 'lucide-react';
+import { ArrowLeft, Bot, ExternalLink, Gauge, Play, RotateCcw, Sparkles, Trophy } from 'lucide-react';
 import { applyCreativeMove, type CreativeBotState } from '@/lib/creative-bot';
 import {
   CREATIVE_SCENARIOS,
@@ -46,6 +46,55 @@ function PiecePreview({ piece, label, active }: { piece: Piece | null; label?: s
         ))}
       </div>
     </div>
+  );
+}
+
+
+function ReferenceComparison({ scenario }: { scenario: CreativeScenario }) {
+  const ref = scenario.reference;
+  return (
+    <section className="mt-8 rounded-[28px] border border-white/10 bg-[#08132e] p-4 sm:p-5">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <div className="text-[11px] font-black uppercase tracking-[0.22em] text-fuchsia-300">Comparison mode</div>
+          <h2 className="mt-1 text-2xl font-black">Original reference ↔ Block Rush recreation</h2>
+          <p className="mt-1 max-w-3xl text-sm text-white/45">Keep the source visible while tuning composition, board density, timing and payoff. Video is used where the public source exposes one; otherwise the public paid-ad frame is shown.</p>
+        </div>
+        <a href={ref.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-2 text-xs font-bold text-white/70 hover:bg-white/[0.09]">
+          Open original source <ExternalLink size={13} />
+        </a>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="overflow-hidden rounded-[24px] border border-fuchsia-300/20 bg-black/30">
+          <div className="border-b border-white/10 px-4 py-3">
+            <div className="text-xs font-black uppercase tracking-wider text-fuchsia-300">Original Block Blast reference</div>
+            <div className="mt-1 text-xs text-white/45">{ref.label}</div>
+          </div>
+          <div className="flex min-h-[420px] items-center justify-center bg-black/50 p-3">
+            {ref.mediaType === 'video' ? (
+              <video src={ref.mediaUrl} controls playsInline preload="metadata" className="max-h-[640px] w-full rounded-2xl object-contain" />
+            ) : (
+              <img src={ref.mediaUrl} alt={ref.label} className="max-h-[640px] w-full rounded-2xl object-contain" />
+            )}
+          </div>
+          <p className="px-4 py-3 text-xs leading-relaxed text-white/40">{ref.note}</p>
+        </div>
+        <div className="overflow-hidden rounded-[24px] border border-cyan-300/20 bg-black/30">
+          <div className="border-b border-white/10 px-4 py-3">
+            <div className="text-xs font-black uppercase tracking-wider text-cyan-300">Our Block Rush target</div>
+            <div className="mt-1 text-xs text-white/45">{scenario.title} · Creative Bot scenario</div>
+          </div>
+          <div className="flex min-h-[420px] items-center justify-center bg-gradient-to-b from-[#17275f] to-[#07122f] p-6 text-center">
+            <div>
+              <div className="text-4xl font-black text-white">{scenario.hook}</div>
+              <div className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/55">Use the live recreation immediately below this comparison while keeping the original reference on screen.</div>
+              <div className="mt-6 rounded-2xl border border-cyan-300/20 bg-cyan-300/[0.07] px-4 py-3 text-sm font-bold text-cyan-200">Grid target: 8 × 8 uniform cells · no stretched empty slots</div>
+            </div>
+          </div>
+          <p className="px-4 py-3 text-xs leading-relaxed text-white/40">The gameplay bot remains untouched; only the separate Creative Bot scenario is compared here.</p>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -207,6 +256,8 @@ export default function CreativePage() {
             ))}
           </div>
         </section>
+
+        <ReferenceComparison scenario={scenario} />
 
         <section className="mt-8 pb-16">
           <CreativeStage scenario={scenario} />
