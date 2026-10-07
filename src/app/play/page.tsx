@@ -26,6 +26,7 @@ import { soundEngine } from '@/lib/audio';
 import { BlockBlastBot, DEFAULT_MILESTONES, type BotEvent, type BotStats } from '@/lib/bot';
 import { initPlaygama } from '@/lib/playgama';
 import { setHintAdProvider } from '@/lib/hint-reward';
+import { BP } from '@/lib/bp';
 
 const RANKING: { name: string; score: number }[] = [
   { name: 'Kara', score: 1720 },
@@ -328,6 +329,13 @@ export default function PlayPage() {
         <>
           {/* top-left: back to list + fullscreen */}
           <div className="absolute left-3 top-3 z-40 flex gap-1.5">
+            <a
+              href={`${BP}/creative/`}
+              className="flex items-center gap-1.5 rounded-full border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-[12px] font-bold text-cyan-100 backdrop-blur transition hover:bg-cyan-300/20"
+            >
+              <Film size={14} />
+              <span className="hidden sm:inline">CREATIVES</span>
+            </a>
             <button
               onClick={() => {
                 const el = wrapRef.current;
