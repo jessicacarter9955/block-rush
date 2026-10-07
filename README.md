@@ -1,38 +1,23 @@
-# Block Rush 1:1 🎮
+# Block Rush 🎮
 
-Il puzzle game **Block Rush** in versione web **1:1 pixel perfect**: blocchi candy
-glossy, board con bordo neon, sfondo bokeh navy — ogni elemento estratto dai
-screenshot reali del gioco originale.
+Puzzle game web con griglia 8×8, trascinamento dei pezzi, combo, punteggio, record e schermate di pausa e fine partita. La pagina include un bot dimostrativo con velocità regolabile e un recorder per acquisire il gioco in formato verticale.
 
 ▶ **Gioca**: https://jessicacarter9955.github.io/block-rush/
 
-## Cosa c'è dentro
-
-- **Gioco completo** — griglia 8×8, drag & drop dei pezzi dal vassoio, righe e
-  colonne multiple, combo, punteggio, record, pausa, game over, rivivi.
-- **BOT giocatore** — un bot JavaScript che gioca da solo cercando sempre il
-  punteggio più alto: prende il pezzo dal vassoio e lo trascina sulla griglia
-  come farebbe un giocatore in carne e ossa. Con **slider di velocità**
-  (0,25× cinematico → 16× turbo) e auto-restart.
-- **RECORDER video** — registra esattamente l'area di gioco (1080×1920, 30fps,
-  senza pannelli) e scarica il video pronto per **YouTube Shorts e TikTok**.
-  Scorciatoia tastiera **R** = start/stop.
-
-## Parametri URL utili
+## Parametri URL
 
 | Parametro | Effetto |
 |---|---|
-| `?clean=1` | nasconde i pannelli (schermata pulita, ideale per i video) |
+| `?clean=1` | nasconde i pannelli di controllo |
 | `?bot=1` | avvia automaticamente il bot |
-| `?speed=4` | velocità del bot (0.25 – 16) |
+| `?speed=4` | imposta la velocità del bot (0,25–16) |
 
 ## Sviluppo locale
 
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm run build      # export statico in out/
+npm run build      # build statica in out/
 ```
 
-Deploy automatico su GitHub Pages a ogni push su `main`
-(workflow `.github/workflows/deploy-pages.yml`).
+Il deploy GitHub Pages parte a ogni push su `main` tramite `.github/workflows/deploy-pages.yml`.
