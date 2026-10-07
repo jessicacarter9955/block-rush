@@ -10,8 +10,16 @@ import {
   formatDuration,
   type AdMediaType,
 } from '@/lib/creative-ad-ranking';
+import {
+  TIKTOK_CREATIVES,
+  YOUTUBE_SHORTS_CREATIVES,
+  socialPopularityScore,
+  type RankedSocialCreative,
+} from '@/lib/creative-social-ranking';
 
-type DurationFilter = 'under60' | '1to3' | 'over3' | 'all';\ntype CreativeTab = 'ads' | 'tiktok' | 'youtube';\ntype SocialSort = 'views' | 'popularity';
+type DurationFilter = 'under60' | '1to3' | 'over3' | 'all';
+type CreativeTab = 'ads' | 'tiktok' | 'youtube';
+type SocialSort = 'views' | 'popularity';
 
 function AdPlayer({
   mediaType,
