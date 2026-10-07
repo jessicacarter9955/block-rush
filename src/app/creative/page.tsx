@@ -11,7 +11,147 @@ import {
   type AdMediaType,
 } from '@/lib/creative-ad-ranking';
 
-type DurationFilter = 'under60' | '1to3' | 'over3' | 'all';
+type DurationFilter = 'under60' | '1to3' | 'over3' | 'all';\ntype CreativeTab = 'ads' | 'tiktok' | 'youtube';\ntype SocialSort = 'views' | 'popularity';
+
+function AdPlayer({
+  mediaType,
+  mediaUrl,
+  label,
+}: {
+  mediaType: AdMediaType;
+  mediaUrl: string;
+  label: string;
+}) {
+  if (mediaType === 'youtube') {
+    return (
+      <iframe
+        className="h-full w-full"
+        src={`https://www.youtube.com/embed/${mediaUrl}?rel=0&playsinline=1`}
+        title={label}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+      />
+    );
+  }
+
+  return (
+    <iframe
+      className="h-full w-full"
+      src={mediaUrl}
+      title={label}
+      allow="autoplay; fullscreen; picture-in-picture"
+      allowFullScreen
+    />
+  );
+}
+
+function matchesDuration(seconds: number, filter: DurationFilter) {
+  if (filter === 'under60') return seconds < 60;
+  if (filter === '1to3') return seconds >= 60 && seconds < 180;
+  if (filter === 'over3') return seconds >= 180;
+  return true;
+}
+
+function fmtMetric(value: number) {
+  if (!value) return '—';
+  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}B`;
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(value >= 10_000_000 ? 1 : 2)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(value >= 100_000 ? 0 : 1)}K`;
+  return String(value);
+}
+
+function SocialRankingTable({
+  items,
+  sort,
+  onSort,
+}: {
+  items: RankedSocialCreative[];
+  sort: SocialSort;
+  onSort: (sort: SocialSort) => void;
+}) {
+  const ranked = [...items].sort((a, b) =>
+    sort === 'views'
+      ? b.views - a.views
+      : socialPopularityScore(b) - socialPopularityScore(a)
+  );
+
+  return (
+    <>
+      <div className="mb-4 flex flex-wrap gap-2">
+        <button
+          onClick={() => onSort('views')}
+          className={`rounded-full border px-3 py-2 text-xs font-black transition ${sort === 'views' ? 'border-cyan-300/60 bg-cyan-300/15 text-cyan-100' : 'border-white/10 bg-white/[0.04] text-white/50'}`}
+        >
+          Sort by views
+        </button>
+        <button
+          onClick={() => onSort('popularity')}
+          className={`rounded-full border px-3 py-2 text-xs font-black transition ${sort === 'popularity' ? 'border-fuchsia-300/60 bg-fuchsia-300/15 text-fuchsia-100' : 'border-white/10 bg-white/[0.04] text-white/50'}`}
+        >
+          Sort by popularity
+        </button>
+      </div>
+
+      <div className="overflow-x-auto rounded-[24px] border border-white/10 bg-[#0b1738]">
+        <table className="min-w-[1080px] w-full text-left text-sm">
+          <thead className="border-b border-white/10 bg-white/[0.03] text-[11px] uppercase tracking-wider text-white/40">
+            <tr>
+              <th className="px-4 py-3">Rank</th>
+              <th className="px-4 py-3">Creative</th>
+              <th className="px-4 py-3">Creator</th>
+              <th className="px-4 py-3">Views</th>
+              <th className="px-4 py-3">Likes</th>
+              <th className="px-4 py-3">Shares</th>
+              <th className="px-4 py-3">Popularity</th>
+              <th className="px-4 py-3">Duration</th>
+              <th className="px-4 py-3">Video</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ranked.map((item, index) => (
+              <tr key={item.id} className="border-b border-white/[0.06] last:border-0">
+                <td className="px-4 py-4 text-lg font-black text-amber-300">#{index + 1}</td>
+                <td className="max-w-[340px] px-4 py-4">
+                  <div className="font-black text-white">{item.title}</div>
+                  <div className="mt-1 text-xs leading-relaxed text-white/40">{item.note}</div>
+                </td>
+                <td className="px-4 py-4 font-bold text-white/75">{item.creator}</td>
+                <td className="px-4 py-4 text-lg font-black text-cyan-200">{fmtMetric(item.views)}</td>
+                <td className="px-4 py-4 text-white/65">{fmtMetric(item.likes)}</td>
+                <td className="px-4 py-4 text-white/65">{fmtMetric(item.shares ?? 0)}</td>
+                <td className="px-4 py-4 font-mono text-fuchsia-200">{fmtMetric(socialPopularityScore(item))}</td>
+                <td className="px-4 py-4 font-mono text-white/65">{item.durationSec ? formatDuration(item.durationSec) : '—'}</td>
+                <td className="px-4 py-4">
+                  <a
+                    href={item.sourceUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-full bg-white/[0.07] px-3 py-2 text-xs font-black text-white transition hover:bg-white/[0.12]"
+                  >
+                    Open video <ExternalLink size={13} />
+                  </a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}se client';
+
+import { useMemo, useState } from 'react';
+import { ArrowLeft, ExternalLink, Play, Sparkles, Trophy } from 'lucide-react';
+import { CreativeRushPlayer } from '@/components/creative/CreativeRushPlayer';
+import { CREATIVE_SCENARIOS } from '@/lib/creative-scenarios';
+import { getCreativeVideoReference } from '@/lib/creative-references';
+import {
+  RANKED_BLOCK_BLAST_ADS,
+  formatDuration,
+  type AdMediaType,
+} from '@/lib/creative-ad-ranking';
+
+type DurationFilter = 'under60' | '1to3' | 'over3' | 'all';\ntype CreativeTab = 'ads' | 'tiktok' | 'youtube';\ntype SocialSort = 'views' | 'popularity';
 
 function AdPlayer({
   mediaType,
@@ -96,6 +236,24 @@ export default function CreativePage() {
         </header>
 
         <section className="mt-10">
+          <div className="mb-6 flex flex-wrap gap-2 rounded-[24px] border border-white/10 bg-[#08132e] p-2">
+            {([
+              ['ads', 'Ads Creative'],
+              ['tiktok', 'TikTok'],
+              ['youtube', 'YouTube Shorts'],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                onClick={() => setActiveTab(value)}
+                className={`rounded-2xl px-5 py-3 text-sm font-black transition ${activeTab === value ? 'bg-white text-slate-950 shadow-lg' : 'text-white/55 hover:bg-white/[0.06] hover:text-white'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {activeTab === 'ads' && (
+          <>
           <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
@@ -194,8 +352,35 @@ export default function CreativePage() {
               </tbody>
             </table>
           </div>
+          </>
+          )}
+
+          {activeTab === 'tiktok' && (
+            <div>
+              <div className="mb-4">
+                <h2 className="text-2xl font-black">TikTok Block Blast creative ranking</h2>
+                <p className="mt-2 max-w-4xl text-sm text-white/45">
+                  Creator / sponsored Block Blast videos ranked by public views or engagement-weighted popularity.
+                </p>
+              </div>
+              <SocialRankingTable items={TIKTOK_CREATIVES} sort={socialSort} onSort={setSocialSort} />
+            </div>
+          )}
+
+          {activeTab === 'youtube' && (
+            <div>
+              <div className="mb-4">
+                <h2 className="text-2xl font-black">YouTube Shorts Block Blast ranking</h2>
+                <p className="mt-2 max-w-4xl text-sm text-white/45">
+                  Sponsored / creator-native Block Blast Shorts ranked by views or popularity.
+                </p>
+              </div>
+              <SocialRankingTable items={YOUTUBE_SHORTS_CREATIVES} sort={socialSort} onSort={setSocialSort} />
+            </div>
+          )}
         </section>
 
+        {activeTab === 'ads' && (
         <section className="mt-12 space-y-10 pb-20">
           {CREATIVE_SCENARIOS.map((scenario) => {
             const reference = getCreativeVideoReference(scenario.id);
@@ -266,6 +451,7 @@ export default function CreativePage() {
             );
           })}
         </section>
+        )}
       </div>
     </main>
   );
