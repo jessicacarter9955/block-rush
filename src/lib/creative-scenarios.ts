@@ -28,6 +28,13 @@ export interface CreativeScenario {
   tray: Piece[];
   script: CreativeMove[];
   labels?: string[];
+  reference: {
+    mediaType: 'video' | 'image';
+    mediaUrl: string;
+    sourceUrl: string;
+    label: string;
+    note: string;
+  };
 }
 
 export interface ObservedAdRow {
@@ -127,6 +134,13 @@ export const CREATIVE_SCENARIOS: CreativeScenario[] = [
     tray: [makePiece(25, 6), makePiece(1, 2), makePiece(19, 4)],
     script: [{ slot: 0, r: 2, c: 3 }],
     labels: ['A', 'B', 'C'],
+    reference: {
+      mediaType: 'image',
+      mediaUrl: 'https://cdn-video.pipiads.com/cover_95235819ed58aceb34dc.jpg',
+      sourceUrl: 'https://www.pipiads.com/tiktok-ads-examples/blockblastblockpuzzlegames-tiktok-ads-1752811843491873',
+      label: 'Block Blast paid-ad reference · Choice / crowded board',
+      note: 'Public Pipiads page exposes the original ad cover/frame here; use it to match layout, density and piece presentation.',
+    },
   },
   {
     id: 'near_death',
@@ -150,6 +164,13 @@ export const CREATIVE_SCENARIOS: CreativeScenario[] = [
     ]),
     tray: [makePiece(20, 7), makePiece(17, 3), makePiece(1, 5)],
     script: [{ slot: 0, r: 2, c: 4 }],
+    reference: {
+      mediaType: 'image',
+      mediaUrl: 'https://cdn-video.pipiads.com/cover_92336e076c65fbba65a9.jpg',
+      sourceUrl: 'https://www.pipiads.com/tiktok-ads-examples/blockblastblockpuzzlegames-tiktok-ads-1750660840096785',
+      label: 'Block Blast paid-ad reference · Dense board / three choices',
+      note: 'Closest public paid-ad reference for the dense-board save format; compare readability and negative space.',
+    },
   },
   {
     id: 'massive_combo',
@@ -173,6 +194,13 @@ export const CREATIVE_SCENARIOS: CreativeScenario[] = [
     ]),
     tray: [makePiece(25, 6), makePiece(19, 2), makePiece(20, 4)],
     script: [{ slot: 0, r: 3, c: 3 }],
+    reference: {
+      mediaType: 'image',
+      mediaUrl: 'https://cdn-video.pipiads.com/cover_3a9a60c314a05f46fd04.jpg',
+      sourceUrl: 'https://www.pipiads.com/tiktok-ads-examples/blockblastblockpuzzlegames-tiktok-ads-1755543488223265',
+      label: 'Block Blast paid-ad reference · Central-gap payoff setup',
+      note: 'Paid-ad frame showing a deliberately constructed central gap and highly legible candidate pieces.',
+    },
   },
   {
     id: 'satisfying_clear',
@@ -196,6 +224,13 @@ export const CREATIVE_SCENARIOS: CreativeScenario[] = [
     ]),
     tray: [makePiece(22, 5), makePiece(17, 1), makePiece(1, 7)],
     script: [{ slot: 0, r: 4, c: 7 }],
+    reference: {
+      mediaType: 'video',
+      mediaUrl: 'https://www.tikwm.com/video/media/play/7454980028539899169.mp4',
+      sourceUrl: 'https://tikwm.com/video/7454980028539899169.html',
+      label: 'Original Block Blast gameplay reference · Satisfying play',
+      note: 'Public Block Blast gameplay reference. This is gameplay footage rather than the exact paid ad, useful for timing and authentic motion.',
+    },
   },
   {
     id: 'high_score',
@@ -219,6 +254,13 @@ export const CREATIVE_SCENARIOS: CreativeScenario[] = [
     ]),
     tray: [makePiece(0, 7), makePiece(1, 5), makePiece(25, 2)],
     script: [{ slot: 0, r: 7, c: 2 }],
+    reference: {
+      mediaType: 'video',
+      mediaUrl: 'https://www.tikwm.com/video/media/play/7480357402060180782.mp4',
+      sourceUrl: 'https://www.tikwm.com/video/7480357402060180782.html',
+      label: 'Original Block Blast gameplay reference · Score / continuous play',
+      note: 'Public Block Blast gameplay footage used as a motion/score reference, not claimed to be the exact paid-ad unit.',
+    },
   },
   {
     id: 'ugc_tutorial',
@@ -242,6 +284,13 @@ export const CREATIVE_SCENARIOS: CreativeScenario[] = [
     ]),
     tray: [makePiece(25, 6), makePiece(19, 3), makePiece(1, 7)],
     script: [{ slot: 0, r: 0, c: 0 }],
+    reference: {
+      mediaType: 'video',
+      mediaUrl: 'https://www.tikwm.com/video/media/play/7514058657152240942.mp4',
+      sourceUrl: 'https://www.tikwm.com/video/7514058657152240942.html',
+      label: 'Block Blast sponsored-style UGC reference',
+      note: 'Public TikTok post with Block Blast sponsorship-style reveal; compare hook pacing and transition into the product.',
+    },
   },
 ];
 
