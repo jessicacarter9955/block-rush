@@ -115,7 +115,7 @@ export const CREATIVE_SCENARIOS: CreativeScenario[] = [
     botFit: 5,
     priorityScore: 98,
     board: boardFromRows([
-      '01....23',
+      '........',
       '12....34',
       '012..345',
       '123..456',
@@ -139,7 +139,7 @@ export const CREATIVE_SCENARIOS: CreativeScenario[] = [
     botFit: 5,
     priorityScore: 96,
     board: boardFromRows([
-      '01.23456',
+      '........',
       '12.34567',
       '0123.567',
       '1234.670',
@@ -214,10 +214,10 @@ export const CREATIVE_SCENARIOS: CreativeScenario[] = [
       '..221...',
       '.33211..',
       '4433221.',
-      '55443322',
+      '5544332.',
       '66.55443',
     ]),
-    tray: [makePiece(17, 7), makePiece(1, 5), makePiece(25, 2)],
+    tray: [makePiece(0, 7), makePiece(1, 5), makePiece(25, 2)],
     script: [{ slot: 0, r: 7, c: 2 }],
   },
   {
