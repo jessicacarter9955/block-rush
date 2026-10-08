@@ -16,9 +16,15 @@ import {
   socialPopularityScore,
   type RankedSocialCreative,
 } from '@/lib/creative-social-ranking';
+import {
+  SENSOR_TOWER_LIMITATION,
+  SENSOR_TOWER_METRICS,
+  SENSOR_TOWER_OVERVIEW_URL,
+  SENSOR_TOWER_REPORTS,
+} from '@/lib/sensor-tower-blockblast';
 
 type DurationFilter = 'under60' | '1to3' | 'over3' | 'all';
-type CreativeTab = 'ads' | 'tiktok' | 'youtube';
+type CreativeTab = 'ads' | 'tiktok' | 'youtube' | 'sensor';
 type SocialSort = 'views' | 'popularity';
 
 function AdPlayer({
@@ -199,6 +205,7 @@ export default function CreativePage() {
               ['ads', 'Ads Creative'],
               ['tiktok', 'TikTok'],
               ['youtube', 'YouTube Shorts'],
+              ['sensor', 'Sensor Tower'],
             ] as const).map(([value, label]) => (
               <button
                 key={value}
@@ -338,6 +345,67 @@ export default function CreativePage() {
                 </p>
               </div>
               <SocialRankingTable items={YOUTUBE_SHORTS_CREATIVES} sort={socialSort} onSort={setSocialSort} />
+            </div>
+          )}
+
+          {activeTab === 'sensor' && (
+            <div>
+              <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-black">Sensor Tower · Block Blast</h2>
+                  <p className="mt-2 max-w-4xl text-sm leading-relaxed text-white/45">
+                    Public Sensor Tower app-performance signals for Block Blast. Creative-level Ad Intelligence is kept separate because those detailed per-ad metrics require Sensor Tower account access.
+                  </p>
+                </div>
+                <a
+                  href={SENSOR_TOWER_OVERVIEW_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-xs font-black text-slate-950"
+                >
+                  Open Block Blast on Sensor Tower <ExternalLink size={13} />
+                </a>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {SENSOR_TOWER_METRICS.map((metric) => (
+                  <a
+                    key={metric.label}
+                    href={metric.sourceUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-[22px] border border-white/10 bg-[#0b1738] p-5 transition hover:border-cyan-300/30 hover:bg-[#10204a]"
+                  >
+                    <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">{metric.label}</div>
+                    <div className="mt-2 text-2xl font-black text-white">{metric.value}</div>
+                    <div className="mt-2 text-xs leading-relaxed text-white/40">{metric.context}</div>
+                  </a>
+                ))}
+              </div>
+
+              <div className="mt-8">
+                <h3 className="text-xl font-black">Sensor Tower reports / market context</h3>
+                <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                  {SENSOR_TOWER_REPORTS.map((report) => (
+                    <a
+                      key={report.title}
+                      href={report.sourceUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-[22px] border border-white/10 bg-[#0b1738] p-5 transition hover:border-fuchsia-300/30 hover:bg-[#10204a]"
+                    >
+                      <div className="text-[10px] font-black uppercase tracking-[0.18em] text-fuchsia-300">{report.period}</div>
+                      <div className="mt-2 text-lg font-black text-white">{report.title}</div>
+                      <div className="mt-3 text-sm font-bold text-cyan-100">{report.metric}</div>
+                      <div className="mt-2 text-xs leading-relaxed text-white/40">{report.detail}</div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-6 rounded-[22px] border border-amber-300/20 bg-amber-300/[0.06] p-4 text-sm leading-relaxed text-amber-100/80">
+                {SENSOR_TOWER_LIMITATION}
+              </div>
             </div>
           )}
         </section>
