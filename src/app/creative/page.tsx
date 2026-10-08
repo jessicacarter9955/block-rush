@@ -22,9 +22,13 @@ import {
   SENSOR_TOWER_OVERVIEW_URL,
   SENSOR_TOWER_REPORTS,
 } from '@/lib/sensor-tower-blockblast';
+import {
+  OFFICIAL_PUBLISHER_CHANNELS,
+  OFFICIAL_PUBLISHER_VIDEOS,
+} from '@/lib/official-publisher-blockblast';
 
 type DurationFilter = 'under60' | '1to3' | 'over3' | 'all';
-type CreativeTab = 'ads' | 'tiktok' | 'youtube' | 'sensor';
+type CreativeTab = 'ads' | 'tiktok' | 'youtube' | 'official' | 'sensor';
 type SocialSort = 'views' | 'popularity';
 
 function AdPlayer({
@@ -205,7 +209,8 @@ export default function CreativePage() {
               ['ads', 'Ads Creative'],
               ['tiktok', 'TikTok'],
               ['youtube', 'YouTube Shorts'],
-              ['sensor', 'Sensor Tower'],
+              ['official', 'Official Publisher'],
+              ['sensor', 'Sensor Tower Creatives'],
             ] as const).map(([value, label]) => (
               <button
                 key={value}
@@ -348,26 +353,129 @@ export default function CreativePage() {
             </div>
           )}
 
+          {activeTab === 'official' && (
+            <div>
+              <div className="mb-5">
+                <h2 className="text-2xl font-black">Block Blast · Official Publisher Pages</h2>
+                <p className="mt-2 max-w-4xl text-sm leading-relaxed text-white/45">
+                  Only publisher-owned Block Blast / Hungry Studio pages and posts. This is intentionally separate from creator partnerships and sponsored UGC.
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {OFFICIAL_PUBLISHER_CHANNELS.map((channel) => (
+                  <a
+                    key={channel.platform}
+                    href={channel.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-[22px] border border-white/10 bg-[#0b1738] p-5 transition hover:border-emerald-300/30 hover:bg-[#10204a]"
+                  >
+                    <div className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">{channel.platform}</div>
+                    <div className="mt-2 text-xl font-black text-white">{channel.label}</div>
+                    {channel.metric && <div className="mt-2 text-sm font-bold text-cyan-100">{channel.metric}</div>}
+                    <div className="mt-2 text-xs leading-relaxed text-white/40">{channel.note}</div>
+                  </a>
+                ))}
+              </div>
+
+              <div className="mt-8">
+                <h3 className="text-xl font-black">Official publisher videos / posts</h3>
+                <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                  {OFFICIAL_PUBLISHER_VIDEOS.map((video) => (
+                    <a
+                      key={video.id}
+                      href={video.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-[22px] border border-white/10 bg-[#0b1738] p-5 transition hover:border-fuchsia-300/30 hover:bg-[#10204a]"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-fuchsia-300/10 px-2.5 py-1 text-[10px] font-black uppercase text-fuchsia-200">
+                          {video.platform}
+                        </span>
+                        {video.duration && <span className="text-xs font-mono text-white/40">{video.duration}</span>}
+                      </div>
+                      <div className="mt-3 text-lg font-black text-white">{video.title}</div>
+                      {video.metric && <div className="mt-2 text-sm font-bold text-cyan-100">{video.metric}</div>}
+                      <div className="mt-2 text-xs leading-relaxed text-white/40">{video.note}</div>
+                      <div className="mt-4 inline-flex items-center gap-2 text-xs font-black text-white">
+                        Open official source <ExternalLink size={13} />
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'sensor' && (
             <div>
               <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-black">Sensor Tower · Block Blast</h2>
+                  <h2 className="text-2xl font-black">Sensor Tower · Publisher Creative Gallery</h2>
                   <p className="mt-2 max-w-4xl text-sm leading-relaxed text-white/45">
-                    Public Sensor Tower app-performance signals for Block Blast. Creative-level Ad Intelligence is kept separate because those detailed per-ad metrics require Sensor Tower account access.
+                    Sensor Tower Ad Intelligence has a Creative Gallery for actual ad images/videos, rollout, networks, formats and creative popularity. Individual Block Blast creative records require Sensor Tower account access, so the playable videos below are public mirrors of Hungry Studio publisher ads rather than fabricated Sensor Tower exports.
                   </p>
                 </div>
-                <a
-                  href={SENSOR_TOWER_OVERVIEW_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-xs font-black text-slate-950"
-                >
-                  Open Block Blast on Sensor Tower <ExternalLink size={13} />
-                </a>
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    href="https://sensortower.com/product/mobile-app/app-advertising-insights"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-xs font-black text-slate-950"
+                  >
+                    Open Sensor Tower Ad Intelligence <ExternalLink size={13} />
+                  </a>
+                  <a
+                    href={SENSOR_TOWER_OVERVIEW_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2.5 text-xs font-black text-white"
+                  >
+                    Block Blast overview <ExternalLink size={13} />
+                  </a>
+                </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-[22px] border border-amber-300/20 bg-amber-300/[0.06] p-4 text-sm leading-relaxed text-amber-100/80">
+                <strong>Sensor Tower Creative Gallery:</strong> filter publisher/app = Hungry Studio / Block Blast, media = Video, duration = &lt;60s, then sort by creative popularity / impression share. Those per-creative rows are behind Sensor Tower login, so I am not inventing their metrics here.
+              </div>
+
+              <div className="mt-8">
+                <h3 className="text-xl font-black">Publisher ads · playable public mirrors</h3>
+                <p className="mt-2 max-w-4xl text-sm text-white/45">
+                  These are verified Hungry Studio Block Blast commercials. Use them as the visible video layer while Sensor Tower supplies the paid-UA metadata when you open the Creative Gallery.
+                </p>
+
+                <div className="mt-4 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                  {RANKED_BLOCK_BLAST_ADS.filter((ad) => ad.format === 'video-ad').map((ad) => (
+                    <article key={ad.id} className="overflow-hidden rounded-[22px] border border-white/10 bg-[#0b1738]">
+                      <div className="aspect-video bg-black">
+                        <AdPlayer mediaType={ad.mediaType} mediaUrl={ad.mediaUrl} label={ad.title} />
+                      </div>
+                      <div className="p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-300">Hungry Studio publisher ad</span>
+                          <span className="font-mono text-xs text-white/50">{formatDuration(ad.durationSec)}</span>
+                        </div>
+                        <div className="mt-2 font-black text-white">{ad.title}</div>
+                        <div className="mt-1 text-xs text-white/40">{ad.metric} · {ad.source}</div>
+                        <a
+                          href={ad.sourceUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-3 inline-flex items-center gap-2 text-xs font-black text-white"
+                        >
+                          Open video source <ExternalLink size={13} />
+                        </a>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 {SENSOR_TOWER_METRICS.map((metric) => (
                   <a
                     key={metric.label}
@@ -403,11 +511,12 @@ export default function CreativePage() {
                 </div>
               </div>
 
-              <div className="mt-6 rounded-[22px] border border-amber-300/20 bg-amber-300/[0.06] p-4 text-sm leading-relaxed text-amber-100/80">
+              <div className="mt-6 rounded-[22px] border border-white/10 bg-white/[0.04] p-4 text-sm leading-relaxed text-white/50">
                 {SENSOR_TOWER_LIMITATION}
               </div>
             </div>
           )}
+
         </section>
 
         {activeTab === 'ads' && (
