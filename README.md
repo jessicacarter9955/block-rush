@@ -21,3 +21,9 @@ npm run build      # build statica in out/
 ```
 
 Il deploy GitHub Pages parte a ogni push su `main` tramite `.github/workflows/deploy-pages.yml`.
+
+## Batch video e live
+
+Il worker locale aggiunge registrazione a lotti, coda MP4, invio programmato a
+più canali tramite Postiz e un feed live RTMP. Istruzioni e stato delle
+integrazioni: [docs/AUTO-PUBLISHING.md](docs/AUTO-PUBLISHING.md).

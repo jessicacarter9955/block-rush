@@ -10,12 +10,22 @@ export function captureRect(rect:{left:number;top:number;width:number;height:num
   const kx=frame.width/viewport.width, ky=frame.height/viewport.height;
   return {x:Math.max(0,rect.left)*kx,y:Math.max(0,rect.top)*ky,width:rect.width*kx,height:rect.height*ky};
 }
-export async function createGameRecorder({element,audio,onTime,onComplete,onError}:{element:HTMLElement;audio:boolean;onTime:(s:number)=>void;onComplete:(blob:Blob,duration:number)=>void;onError:(message:string)=>void}):Promise<()=>void> {
+export interface RecorderOptions {
+  element: HTMLElement; audio: boolean; onTime: (s:number) => void;
+  onComplete: (blob:Blob,duration:number) => void;
+  onError: (message:string) => void;
+  segmentSeconds?: number; maxSegments?: number;
+  onChunk?: (chunk:Blob) => void;
+  onStopped?: () => void;
+}
+export async function createGameRecorder({element,audio,onTime,onComplete,onError,segmentSeconds,maxSegments=1,onChunk,onStopped}:RecorderOptions):Promise<()=>void> {
+  if(segmentSeconds!==undefined && (!Number.isFinite(segmentSeconds)||segmentSeconds<6||segmentSeconds>60)) throw new Error('Clip duration must be 6–60 seconds.');
+  if(!Number.isInteger(maxSegments)||maxSegments<1||maxSegments>50) throw new Error('Choose 1–50 clips per batch.');
   if(!navigator.mediaDevices?.getDisplayMedia || typeof MediaRecorder==='undefined') throw new Error('Usa Chrome o Edge su desktop per registrare.');
   let display:MediaStream|undefined,mixed:MediaStream|undefined,rec:MediaRecorder|undefined;
-  let video:HTMLVideoElement|undefined,raf=0,frameCallback=0,timer=0,timeout=0,closed=false;
-  const cleanup=()=>{closed=true;clearInterval(timer);clearTimeout(timeout);cancelAnimationFrame(raf);if(video){video.cancelVideoFrameCallback?.(frameCallback);video.pause();video.srcObject=null;}display?.getTracks().forEach(t=>t.stop());mixed?.getTracks().forEach(t=>t.stop());};
-  const stop=()=>{if(rec && rec.state!=='inactive') rec.stop();else cleanup();};
+  let video:HTMLVideoElement|undefined,raf=0,frameCallback=0,timer=0,timeout=0,segmentTimer=0,closed=false,stopping=false;
+  const cleanup=()=>{if(closed)return;closed=true;clearInterval(timer);clearTimeout(timeout);clearTimeout(segmentTimer);cancelAnimationFrame(raf);if(video){video.cancelVideoFrameCallback?.(frameCallback);video.pause();video.srcObject=null;}display?.getTracks().forEach(t=>t.stop());mixed?.getTracks().forEach(t=>t.stop());onStopped?.();};
+  const stop=()=>{stopping=true;clearTimeout(segmentTimer);if(rec && rec.state!=='inactive') rec.stop();else cleanup();};
   try {
     display=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:30},audio,preferCurrentTab:true,selfBrowserSurface:'include',surfaceSwitching:'exclude',systemAudio:'exclude'} as DisplayMediaStreamOptions);
     const track=display.getVideoTracks()[0];
@@ -28,14 +38,27 @@ export async function createGameRecorder({element,audio,onTime,onComplete,onErro
     const ctx=canvas.getContext('2d');if(!ctx) throw new Error('Canvas non disponibile.');
     const draw=()=>{const r=captureRect(element.getBoundingClientRect(),{width:innerWidth,height:innerHeight},{width:video!.videoWidth,height:video!.videoHeight});ctx.drawImage(video!,r.x,r.y,r.width,r.height,0,0,1080,1920);};
     draw();mixed=canvas.captureStream(30);for(const t of display.getAudioTracks()) mixed.addTrack(t);
-    const mime=['video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(m=>MediaRecorder.isTypeSupported(m));
-    rec=new MediaRecorder(mixed,{...(mime?{mimeType:mime}:{}),videoBitsPerSecond:12000000,audioBitsPerSecond:128000});
-    const chunks:Blob[]=[];let failed=false;const start=performance.now();
-    rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
-    rec.onerror=()=>{failed=true;onError('Registrazione interrotta dal browser.');stop();};
-    rec.onstop=()=>{const type=rec!.mimeType||mime||'video/webm';const duration=(performance.now()-start)/1000;cleanup();if(!failed && chunks.length)onComplete(new Blob(chunks,{type}),duration);else if(!failed)onError('Il video è vuoto. Riprova dopo aver scelto la scheda corretta.');};
+    const candidates=onChunk?['video/webm;codecs=vp8,opus','video/webm']:['video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
+    const mime=candidates.find(m=>MediaRecorder.isTypeSupported(m));
+    if(onChunk&&!mime) throw new Error('This browser cannot send a WebM live feed. Use desktop Chrome or Edge.');
+    let failed=false,segments=0;const start=performance.now();
+    const beginSegment=()=>{
+      rec=new MediaRecorder(mixed!,{...(mime?{mimeType:mime}:{}),videoBitsPerSecond:onChunk?5000000:12000000,audioBitsPerSecond:128000});
+      const chunks:Blob[]=[];const segmentStart=performance.now();
+      rec.ondataavailable=e=>{if(e.data.size){if(onChunk){try{onChunk(e.data);}catch(error){failed=true;onError(error instanceof Error?error.message:String(error));stop();}}else chunks.push(e.data);}};
+      rec.onerror=()=>{failed=true;onError('Registrazione interrotta dal browser.');stop();};
+      rec.onstop=()=>{
+        const type=rec!.mimeType||mime||'video/webm';const duration=(performance.now()-segmentStart)/1000;
+        segments++;
+        if(!failed&&!onChunk&&chunks.length){try{onComplete(new Blob(chunks,{type}),duration);}catch(error){failed=true;onError(error instanceof Error?error.message:String(error));}}
+        else if(!failed&&!onChunk){failed=true;onError('Il video è vuoto. Riprova dopo aver scelto la scheda corretta.');}
+        if(segmentSeconds&&!stopping&&!failed&&segments<maxSegments){try{beginSegment();}catch(error){failed=true;onError(error instanceof Error?error.message:String(error));cleanup();}}else cleanup();
+      };
+      rec.start(500);
+      if(segmentSeconds)segmentTimer=window.setTimeout(()=>{if(rec?.state==='recording')rec.stop();},segmentSeconds*1000);
+    };
     const pump=()=>{if(closed)return;try{draw();if(typeof video!.requestVideoFrameCallback==='function')frameCallback=video!.requestVideoFrameCallback(pump);else raf=requestAnimationFrame(pump);}catch(e){failed=true;onError(e instanceof Error?e.message:String(e));stop();}};
-    track.addEventListener('ended',stop,{once:true});rec.start(500);pump();timer=window.setInterval(()=>onTime((performance.now()-start)/1000),250);
+    track.addEventListener('ended',stop,{once:true});beginSegment();pump();timer=window.setInterval(()=>onTime((performance.now()-start)/1000),250);
     return stop;
   }catch(error){cleanup();throw error;}
 }

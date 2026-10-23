@@ -1,0 +1,16 @@
+{
+  "mode": "local",
+  "intervalMinutes": 180,
+  "postizBaseUrl": "https://api.postiz.com/public/v1",
+  "channels": [],
+  "channelExample": {
+    "id": "COPY_CONNECTED_POSTIZ_CHANNEL_ID",
+    "settings": {
+      "__type": "youtube",
+      "type": "private",
+      "selfDeclaredMadeForKids": "no",
+      "tags": []
+    }
+  },
+  "description": "BlockRush gameplay. #BlockRush #puzzle #gaming"
+}

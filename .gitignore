@@ -16,3 +16,5 @@ worklog.md
 best-block-blast/
 bun.lock
 public/download.html
+publisher/config.local.json
+publisher/data/

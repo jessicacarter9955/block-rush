@@ -19,6 +19,7 @@ import {
 } from '@/components/game/Kit';
 import { Action, Round, Ranking } from '@/components/game/RushUI';
 import { PlayGame } from '@/components/game/PlayGame';
+import { PublisherPanel } from '@/components/game/PublisherPanel';
 import {createGameRecorder,sliderToSpeed,speedToSlider} from '@/lib/recording';
 import { useStudio } from '@/lib/store';
 import { PRESETS, fontCss } from '@/lib/skin';
@@ -94,6 +95,7 @@ export default function PlayPage() {
   const recMountedRef=useRef(true);
   const [recStarting,setRecStarting]=useState(false);
   const recStopRef = useRef<(() => void) | null>(null);
+  const [publisherBusy,setPublisherBusy]=useState(false);
 
   const pushLog = useCallback((s: string) => {
     setLog((l) => [`${new Date().toLocaleTimeString('it-IT', { hour12: false })} · ${s}`, ...l].slice(0, 30));
@@ -217,12 +219,21 @@ export default function PlayPage() {
     }
   };
 
+  const startPublishingBot = async () => {
+    setAutoRestart(true);
+    if (!playing) setPlaying(true);
+    if (!await waitGameApi()) throw new Error('Game did not start. Press Play and try again.');
+    // Let React apply autoRestart to the bot before starting its next run.
+    const bot = botRef.current;
+    if (bot && !bot.isRunning()) { setBotOn(true); void bot.start(); }
+  };
+
   // -------------------------------------------------------- recorder ------
   // Registra ESATTAMENTE l'area di gioco (crop pixel-perfect dell'elemento
   // 1080×1920) ricampionando la condivisione scheda su un canvas: il video
   // scaricato è già 9:16 pronto per YouTube Shorts / TikTok, senza pannelli.
   const startRec = useCallback(async () => {
-    if(recBusyRef.current || recStopRef.current) return;
+    if(publisherBusy || recBusyRef.current || recStopRef.current) return;
     recBusyRef.current=true;setRecStarting(true);setRecErr(null);setRecTime(0);
     if(recUrlRef.current){URL.revokeObjectURL(recUrlRef.current);recUrlRef.current=null;}
     setRecInfo(null);
@@ -243,7 +254,7 @@ export default function PlayPage() {
       recStopRef.current=stop;setRecOn(true);pushLog('registrazione avviata · 1080×1920 · 30fps');
     }catch(err){if(recMountedRef.current){setRecErr(err instanceof Error?err.message:String(err));setRecOn(false);}}
     finally {recBusyRef.current=false;if(recMountedRef.current)setRecStarting(false);}
-  },[recAudio,pushLog]);
+  },[recAudio,pushLog,publisherBusy]);
 
   const stopRec = useCallback(() => { recStopRef.current?.(); }, []);
 
@@ -352,7 +363,7 @@ export default function PlayPage() {
           </div>
 
           {/* bot panel */}
-          <div className="absolute right-3 top-3 z-40 w-[264px]">
+          <div className="absolute right-3 top-3 z-40 max-h-[calc(100dvh-24px)] w-[264px] overflow-y-auto">
             {panelHidden ? (
               <button
                 onClick={() => setPanelHidden(false)}
@@ -417,7 +428,7 @@ export default function PlayPage() {
                   {!recOn ? (
                     <>
                       <button
-                        disabled={recStarting} onClick={() => void startRec()}
+                        disabled={recStarting||publisherBusy} onClick={() => void startRec()}
                         className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-rose-500/90 py-2.5 text-[13px] font-extrabold text-white transition hover:bg-rose-500"
                       >
                         <CircleDot size={14} />
@@ -461,6 +472,7 @@ export default function PlayPage() {
                         </button>
                       </div>
                       <video src={recInfo.url} controls className="mb-1.5 w-full rounded-md" style={{ maxHeight: 220 }} />
+                      <a href={recInfo.url} download={recInfo.name} className="mb-2 block rounded bg-emerald-700 px-3 py-2 text-center text-xs font-bold text-white">Scarica video</a>
                       <div className="text-[9.5px] text-white/45">
                         {fmtTime(recInfo.dur)} · {fmtBytes(recInfo.size)} · {recInfo.mime.split(';')[0]} · pronto da scaricare
                       </div>
@@ -468,6 +480,8 @@ export default function PlayPage() {
                   )}
                   {recErr && <p className="mt-1 text-[10px] leading-relaxed text-rose-300">{recErr}</p>}
                 </div>
+
+                <PublisherPanel area={areaRef} recorderBusy={recOn||recStarting} startBot={startPublishingBot} onBusyChange={setPublisherBusy}/>
 
                 {stats && (
                   <div className="mb-2 grid grid-cols-4 gap-1 text-center">

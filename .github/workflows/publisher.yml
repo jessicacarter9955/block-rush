@@ -1,0 +1,28 @@
+name: Test batch publisher and live worker
+
+on:
+  push:
+    branches: [codex/youtube-bot-publishing]
+  pull_request:
+    paths: ['publisher/**', 'tests/**', 'src/lib/recording.ts', 'src/components/game/PublisherPanel.tsx', 'src/app/play/page.tsx', 'package*.json']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: npm test
+        env:
+          PUBLISHER_FFMPEG_TEST: '1'
+      - run: npm run publisher:build
