@@ -22,6 +22,8 @@ export async function createPublisher({ directory, config = {}, key, root, port 
   const queue = new PublisherQueue(directory, config, { key, convert });
   await queue.init();
   let encoder = null, liveSocket = null, liveState = 'idle';
+  let liveStartedAt = null, liveBytes = 0, lastChunkAt = null, telemetry = null;
+  const startedAt = Date.now();
   const streamUrl = process.env.PUBLISHER_RTMP_URL;
   if (streamUrl && !['rtmp:', 'rtmps:'].includes(new URL(streamUrl).protocol)) throw new Error('PUBLISHER_RTMP_URL must use RTMP or RTMPS');
   const ffmpeg = process.env.FFMPEG_PATH || 'ffmpeg';
@@ -36,15 +38,53 @@ export async function createPublisher({ directory, config = {}, key, root, port 
     try {
       const url = new URL(req.url, origin);
       if (url.pathname === '/api/publisher/status' && req.method === 'GET') {
+        const filter = url.searchParams.get('filter') || 'all';
+        const search = (url.searchParams.get('q') || '').toLowerCase();
+        const limit = Math.max(1, Math.min(100, Number(url.searchParams.get('limit')) || 50));
+        const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0);
+        const filtered = queue.jobs.filter(j => (filter === 'all' || (filter === 'held' ? j.held : j.state === filter)) && `${j.title} ${j.id}`.toLowerCase().includes(search)).reverse();
         return json(res, 200, {
           token, mode: queue.config.mode, ffmpeg: ffmpegReady, postiz: Boolean(queue.key),
-          channels: queue.config.channels.map(c => ({ id: c.id, provider: c.settings.__type })),
+          channels: queue.config.channels.map(c => {
+            const remote = queue.remote.channels.find(remote => remote.id === c.id);
+            return { id: c.id, provider: c.settings.__type, visibility: c.settings.type, verified: Boolean(remote), ...remote };
+          }),
           liveConfigured: Boolean(streamUrl), liveState,
-          jobs: queue.jobs.slice(-50).reverse().map(({ id, title, state, error, scheduledAt, receipts }) => ({ id, title, state, error, scheduledAt, receipts })),
+          live: { startedAt: liveStartedAt, bytes: liveBytes, lastChunkAt },
+          worker: { paused: queue.paused, running: queue.running, startedAt, now: Date.now() },
+          telemetry, stats: queue.summary(), remote: { checkedAt: queue.remote.checkedAt, error: queue.remote.error, syncing: queue.syncing },
+          intervalMinutes: queue.config.intervalMinutes, matched: filtered.length,
+          jobs: filtered.slice(offset, offset + limit).map(({ id, title, state, held, error, createdAt, updatedAt, scheduledAt, submittedAt, duration, outputBytes, preparedAt, receipts, destinations, history, lastCheckedAt }) =>
+            ({ id, title, state, held, error, createdAt, updatedAt, scheduledAt, submittedAt, duration, outputBytes, preparedAt, receipts, destinations, history, lastCheckedAt })),
         });
       }
       if (url.pathname.startsWith('/api/publisher/')) {
         if (req.headers.authorization !== `Bearer ${token}`) return json(res, 401, { error: 'Refresh the publisher session.' });
+        if (req.method === 'POST' && url.pathname === '/api/publisher/sync') {
+          try { await queue.sync(); return json(res, 200, { synced: true }); }
+          catch (error) { return json(res, 409, { error: error.message }); }
+        }
+        if (req.method === 'POST' && /^\/api\/publisher\/worker\/(pause|resume)$/.test(url.pathname)) {
+          await queue.setPaused(url.pathname.endsWith('/pause'));
+          json(res, 200, { paused: queue.paused });
+          if (!queue.paused) void queue.process().catch(() => {});
+          return;
+        }
+        const action = /^\/api\/publisher\/jobs\/([a-f0-9-]{36})\/(retry|hold|release)$/.exec(url.pathname);
+        if (req.method === 'POST' && action) {
+          try { await queue.act(action[1], action[2]); json(res, 200, { ok: true }); void queue.process().catch(() => {}); }
+          catch (error) { json(res, 409, { error: error.message }); }
+          return;
+        }
+        if (req.method === 'POST' && url.pathname === '/api/publisher/telemetry') {
+          let size = 0; const chunks = [];
+          for await (const chunk of req) { size += chunk.length; if (size > 4096) throw new Error('Telemetry is too large'); chunks.push(chunk); }
+          const value = JSON.parse(Buffer.concat(chunks).toString());
+          const numeric = key => Number.isFinite(value[key]) ? Math.max(0, value[key]) : 0;
+          telemetry = { at: Date.now(), botRunning: value.botRunning === true, speed: numeric('speed'), score: numeric('score'), moves: numeric('moves'), lines: numeric('lines'),
+            capture: ['batch', 'live'].includes(value.capture) ? value.capture : null, elapsed: numeric('elapsed'), clips: numeric('clips') };
+          return json(res, 200, { ok: true });
+        }
         if (url.pathname === '/api/publisher/clip' && req.method === 'POST') {
           if (!accepting) return json(res, 409, { error: 'Another clip is being received.' });
           if (!ffmpegReady) return json(res, 503, { error: 'Install FFmpeg before recording.' });
@@ -67,7 +107,9 @@ export async function createPublisher({ directory, config = {}, key, root, port 
             if (size === 0) throw new Error('Empty recording');
             const source = `${id}.source.${suffix}`;
             await rename(temp, join(directory, source));
-            const added = await queue.add({ id, source, hash: hash.digest('hex'), title: `BlockRush · ${new Date().toISOString()} · ${queue.jobs.length + 1}` });
+            const duration = Number(url.searchParams.get('duration'));
+            const added = await queue.add({ id, source, hash: hash.digest('hex'), title: `BlockRush · ${new Date().toISOString()} · ${queue.jobs.length + 1}`,
+              ...(Number.isFinite(duration) && duration > 0 && duration < 86400 ? { duration } : {}) });
             if (!added) await unlink(join(directory, source));
             json(res, 202, { id, duplicate: !added });
             void queue.process().catch(() => {});
@@ -105,6 +147,7 @@ export async function createPublisher({ directory, config = {}, key, root, port 
   });
   ws.on('connection', socket => {
     liveSocket = socket; liveState = 'connecting';
+    liveStartedAt = Date.now(); liveBytes = 0; lastChunkAt = null;
     const child = spawn(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-i', 'pipe:0',
       '-map', '0:v:0', '-map', '0:a:0?', '-c:v', 'libx264', '-preset', 'veryfast', '-tune', 'zerolatency',
       '-pix_fmt', 'yuv420p', '-r', '30', '-g', '60', '-b:v', '5000k', '-maxrate', '5000k', '-bufsize', '10000k',
@@ -123,12 +166,19 @@ export async function createPublisher({ directory, config = {}, key, root, port 
     socket.on('message', (chunk, binary) => {
       if (!binary) return socket.close(1003, 'Video chunks only');
       if (child.stdin.destroyed || child.stdin.writableEnded) return;
+      liveBytes += chunk.length; lastChunkAt = Date.now();
       if (!child.stdin.write(chunk)) { socket.pause(); child.stdin.once('drain', () => socket.resume()); }
     });
     socket.on('error', () => socket.close());
     socket.once('close', () => { child.stdin.end(); const timer = setTimeout(() => child.kill(), 10_000); timer.unref(); child.once('exit', () => clearTimeout(timer)); });
   });
-  const timer = setInterval(() => { void queue.process().catch(() => {}); }, 10_000);
+  let lastSyncAttempt = 0;
+  const timer = setInterval(() => {
+    void queue.process().catch(() => {});
+    if (queue.key && queue.config.postizBaseUrl && !queue.syncing && Date.now() - lastSyncAttempt > 60_000) {
+      lastSyncAttempt = Date.now(); void queue.sync().catch(() => {});
+    }
+  }, 10_000);
   timer.unref();
   server.once('close', () => { clearInterval(timer); liveSocket?.terminate(); encoder?.kill(); ws.close(); });
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); });

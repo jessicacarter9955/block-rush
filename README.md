@@ -27,3 +27,6 @@ Il deploy GitHub Pages parte a ogni push su `main` tramite `.github/workflows/de
 Il worker locale aggiunge registrazione a lotti, coda MP4, invio programmato a
 più canali tramite Postiz e un feed live RTMP. Istruzioni e stato delle
 integrazioni: [docs/AUTO-PUBLISHING.md](docs/AUTO-PUBLISHING.md).
+
+Dashboard locale: <http://127.0.0.1:8765/publisher/> — coda, anteprime, statistiche,
+stato del bot/live, risultati per canale e controlli di pausa e retry.

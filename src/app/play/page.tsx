@@ -154,6 +154,8 @@ export default function PlayPage() {
         if (e.type === 'start') {
           pushLog('bot avviato');
         } else if (e.type === 'stop') {
+          setBotOn(false);
+          setStats(e.stats);
           pushLog(`bot fermo (${e.reason}) · record ${e.stats.best}`);
         } else if (e.type === 'move') {
           setStats(e.stats);
@@ -481,7 +483,7 @@ export default function PlayPage() {
                   {recErr && <p className="mt-1 text-[10px] leading-relaxed text-rose-300">{recErr}</p>}
                 </div>
 
-                <PublisherPanel area={areaRef} recorderBusy={recOn||recStarting} startBot={startPublishingBot} onBusyChange={setPublisherBusy}/>
+                <PublisherPanel area={areaRef} recorderBusy={recOn||recStarting} startBot={startPublishingBot} onBusyChange={setPublisherBusy} bot={{running:botOn,speed,score:stats?.score||0,moves:stats?.moves||0,lines:stats?.totalLines||0}}/>
 
                 {stats && (
                   <div className="mb-2 grid grid-cols-4 gap-1 text-center">

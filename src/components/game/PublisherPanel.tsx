@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createGameRecorder } from '@/lib/recording';
+import { BP } from '@/lib/bp';
 
 type Job = { id:string; title:string; state:string; error?:string };
 type Status = { token:string; mode:string; ffmpeg:boolean; postiz:boolean; liveConfigured:boolean; liveState:string; channels:{id:string;provider:string}[]; jobs:Job[] };
 
-export function PublisherPanel({ area, startBot, recorderBusy, onBusyChange }: {
+export function PublisherPanel({ area, startBot, recorderBusy, onBusyChange, bot }: {
   area: { current:HTMLDivElement|null }; startBot: () => Promise<void>; recorderBusy:boolean; onBusyChange:(busy:boolean)=>void;
+  bot: { running:boolean; speed:number; score:number; moves:number; lines:number };
 }) {
   const [visible,setVisible]=useState(false),[status,setStatus]=useState<Status|null>(null);
   const [message,setMessage]=useState('Connecting to the local publisher…');
@@ -32,6 +34,14 @@ export function PublisherPanel({ area, startBot, recorderBusy, onBusyChange }: {
     void poll();const interval=setInterval(()=>void poll(),5000);
     return()=>{mounted.current=false;clearInterval(interval);stopRef.current?.();socketRef.current?.close();};
   },[poll]);
+  const telemetry=useRef({bot,active,elapsed,saved});
+  telemetry.current={bot,active,elapsed,saved};
+  useEffect(()=>{
+    if(!visible||!status?.token)return;
+    const send=()=>{const value=telemetry.current;void fetch('/api/publisher/telemetry',{method:'POST',headers:{Authorization:`Bearer ${status.token}`,'Content-Type':'application/json'},
+      body:JSON.stringify({botRunning:value.bot.running,speed:value.bot.speed,score:value.bot.score,moves:value.bot.moves,lines:value.bot.lines,capture:value.active,elapsed:value.elapsed,clips:value.saved})}).catch(()=>{});};
+    send();const timer=setInterval(send,5000);return()=>clearInterval(timer);
+  },[visible,status?.token]);
 
   const capture=async(live:boolean)=>{
     if(!area.current||!status||starting||active||recorderBusy)return;
@@ -56,10 +66,10 @@ export function PublisherPanel({ area, startBot, recorderBusy, onBusyChange }: {
           if(socket.bufferedAmount>8*1024*1024)throw new Error('Connection cannot keep up with the live video.');
           socket.send(chunk);
         }:undefined,
-        onComplete:blob=>{
+        onComplete:(blob,duration)=>{
           const id=crypto.randomUUID();
           uploadChain.current=uploadChain.current.then(async()=>{
-            const response=await fetch(`/api/publisher/clip?id=${id}`,{method:'POST',headers:{Authorization:`Bearer ${status.token}`,'Content-Type':blob.type},body:blob});
+            const response=await fetch(`/api/publisher/clip?id=${id}&duration=${duration}`,{method:'POST',headers:{Authorization:`Bearer ${status.token}`,'Content-Type':blob.type},body:blob});
             if(!response.ok)throw new Error('Clip transfer failed. Batch stopped; check the local worker.');
             if(mounted.current){setSaved(n=>n+1);void poll();}
           }).catch(error=>{stopRef.current?.();if(mounted.current)setMessage(error.message);});
@@ -85,6 +95,7 @@ export function PublisherPanel({ area, startBot, recorderBusy, onBusyChange }: {
   const disabled=Boolean(active||starting||recorderBusy||!status?.ffmpeg);
   return <section aria-label="Batch publisher and live" className="mt-3 rounded-xl border border-cyan-400/30 bg-cyan-950/60 p-3 text-xs text-white">
     <h2 className="mb-2 font-black text-cyan-200">BATCH PUBLISHER + LIVE</h2>
+    <a href={`${BP}/publisher/`} target="_blank" rel="noopener" className="mb-3 block rounded-lg border border-cyan-300/30 bg-cyan-400/10 px-3 py-2 text-center font-bold text-cyan-100">OPEN PUBLISHING DASHBOARD ↗</a>
     <p role="status" className="mb-3 text-[11px] text-white/70">{message}</p>
     <div className="mb-2 grid grid-cols-2 gap-2">
       <label>Clips<input aria-label="Number of clips" disabled={disabled} type="number" min={1} max={50} value={count} onChange={e=>setCount(Math.max(1,Math.min(50,Number(e.target.value)||1)))} className="mt-1 w-full rounded bg-black/30 p-2"/></label>

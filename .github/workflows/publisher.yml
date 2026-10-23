@@ -4,7 +4,7 @@ on:
   push:
     branches: [codex/youtube-bot-publishing]
   pull_request:
-    paths: ['publisher/**', 'tests/**', 'src/lib/recording.ts', 'src/components/game/PublisherPanel.tsx', 'src/app/play/page.tsx', 'package*.json']
+    paths: ['publisher/**', 'tests/**', 'src/lib/recording.ts', 'src/components/game/PublisherPanel.tsx', 'src/components/publisher/**', 'src/app/publisher/**', 'src/app/play/page.tsx', 'package*.json']
   workflow_dispatch:
 
 permissions:

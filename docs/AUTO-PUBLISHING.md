@@ -1,6 +1,6 @@
 # BlockRush batch recording, publishing and live
 
-Branch: `codex/youtube-bot-publishing`. Web package version: `1.1.0`.
+Branch: `codex/youtube-bot-publishing`. Web package version: `1.2.0`.
 
 The GitHub Pages game remains a static site. Upload credentials and live stream
 keys belong in a worker, never in browser code or GitHub Pages assets. This
@@ -8,6 +8,31 @@ implementation adds a **local Node worker** and an optional game control panel.
 It does not create social accounts, connect channels or publish anything by
 default. Batch capture requires one browser tab-sharing selection per session.
 The PC, browser tab and worker must remain running and awake.
+
+## Publishing dashboard
+
+Open <http://127.0.0.1:8765/publisher/> or use **Open publishing dashboard** in
+the recorder panel. Leave the recorder tab open when recording; the dashboard
+opens separately and refreshes every five seconds.
+
+- Global clip counts, ready/scheduled/published totals, library storage and
+  recorded duration. Search, status filters and pagination cover the full queue.
+- Bot speed, score and moves from the open recorder tab; stale sessions are
+  labelled inactive. Live metrics show the encoder and bytes sent, not viewers
+  or proof that a destination is publicly live.
+- Clip details, authenticated MP4 previews/downloads, activity history, per-channel
+  results and links to published posts when returned by Postiz.
+- Persistent queue pause/resume, clip hold/release and retry for local failures.
+  An in-progress step may finish after pausing. Unknown or already-submitted
+  posts cannot be blindly retried from this UI.
+- Postiz status sync automatically runs about once a minute when configured;
+  **Sync publication status** also requests it manually. Only explicit
+  `PUBLISHED` results for every submitted target produce a Published clip.
+  Mixed results are labelled Partly published; provider errors remain visible.
+
+No accounts, social view counts, revenue or example jobs are fabricated. This
+dashboard uses the local worker; the exported page on GitHub Pages explains
+how to open it locally. Channel credentials remain in the worker configuration.
 
 ## Start on this PC
 
@@ -61,7 +86,7 @@ Other providers require their own settings schema. See
 [media upload](https://docs.postiz.com/public-api/uploads/upload-file), and
 [YouTube settings](https://docs.postiz.com/public-api/providers/youtube).
 
-Queue states: `captured` → `converting` → `ready` → `sending` → `draft` or
+Queue states: `captured` → `converting` → `ready` → `uploading` → `sending` → `draft` or
 `scheduled`. Scheduled means accepted by Postiz, **not confirmed published by
 the social platform**. Check the Postiz dashboard for publication outcomes.
 Network loss during submission produces `unknown` and is never automatically
