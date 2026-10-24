@@ -1,6 +1,6 @@
 {
   "name": "block-rush",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "description": "Puzzle game web con bot dimostrativo e recorder video integrati.",
   "scripts": {

@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { readFile, writeFile, rename, mkdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
+import { exportLayout, socialFormat } from './formats.mjs';
 
 export function validateConfig(input = {}) {
   const config = { mode: 'local', intervalMinutes: 180, channels: [], ...input };
@@ -11,6 +12,7 @@ export function validateConfig(input = {}) {
   for (const channel of config.channels) {
     if (!channel.id || ids.has(channel.id) || !channel.settings?.__type) throw new Error('Each channel needs a unique id and provider settings');
     ids.add(channel.id);
+    if (channel.format) socialFormat(channel.format, channel.framing || 'safe');
     if (channel.settings.__type === 'youtube' && !['public', 'unlisted', 'private'].includes(channel.settings.type)) throw new Error('Set YouTube visibility explicitly');
   }
   if (config.mode !== 'local' && !config.channels.length) throw new Error('Connect at least one channel before enabling publishing');
@@ -29,7 +31,7 @@ export function makePost(config, job, media, now = Date.now()) {
     shortLink: false, tags: [],
     posts: config.channels.map(channel => ({
       integration: { id: channel.id },
-      value: [{ content: config.description || job.title, image: [{ id: media.id, path: media.path }] }],
+      value: [{ content: config.description || job.title, image: [{ id: (media.byChannel?.[channel.id] || media).id, path: (media.byChannel?.[channel.id] || media).path }] }],
       settings: { ...channel.settings, ...(channel.settings.__type === 'youtube' ? { title: job.title.slice(0, 100) } : {}) },
     })),
   };
@@ -63,6 +65,7 @@ export class PublisherQueue {
     this.directory = directory; this.config = validateConfig(config); this.key = key;
     this.request = request; this.convert = convert; this.jobs = []; this.running = false; this.persistence = Promise.resolve();
     this.paused = false; this.syncing = false; this.remote = { checkedAt: null, error: null, channels: [] };
+    this.exportWork = Promise.resolve(); this.exportPromises = new Map();
   }
   async init() {
     await mkdir(this.directory, { recursive: true });
@@ -71,6 +74,9 @@ export class PublisherQueue {
     try { this.paused = Boolean(JSON.parse(await readFile(join(this.directory, 'worker.json'), 'utf8')).paused); }
     catch (error) { if (error.code !== 'ENOENT') throw error; }
     for (const job of this.jobs) {
+      for (const output of Object.values(job.exports || {})) {
+        if (['queued', 'rendering'].includes(output.state)) { output.state = 'failed'; output.error = 'Export interrupted. Render this format again.'; }
+      }
       if (job.state === 'sending') { job.state = 'unknown'; job.error = 'Worker restarted during submission. Check Postiz; do not automatically resubmit.'; }
       if (job.state === 'converting') job.state = 'captured';
       if (job.state === 'uploading') job.state = 'ready';
@@ -110,7 +116,7 @@ export class PublisherQueue {
     const counts = {};
     for (const job of this.jobs) counts[job.state] = (counts[job.state] || 0) + 1;
     return { total: this.jobs.length, counts, held: this.jobs.filter(j => j.held).length,
-      bytes: this.jobs.reduce((sum, j) => sum + (j.outputBytes || 0), 0),
+      bytes: this.jobs.reduce((sum, j) => sum + (j.outputBytes || 0) + Object.values(j.exports || {}).reduce((bytes, output) => bytes + (output.state === 'ready' ? output.bytes || 0 : 0), 0), 0),
       seconds: this.jobs.reduce((sum, j) => sum + (j.duration || 0), 0),
       active: this.jobs.find(j => ['starting', 'recording', 'converting', 'uploading', 'sending'].includes(j.state))?.id || null };
   }
@@ -162,6 +168,36 @@ export class PublisherQueue {
     job.scheduledAt = Math.max(Date.now() + 60_000, lastSlot + this.config.intervalMinutes * 60_000);
     job.createdAt = Date.now(); this.transition(job, state); this.jobs.push(job); await this.save(); return true;
   }
+  async requestExport(id, formatId, framing = 'safe') {
+    const layout = exportLayout(formatId, framing);
+    const job = this.jobs.find(job => job.id === id);
+    if (!job?.preparedAt) throw new Error('Wait until the original MP4 is ready');
+    job.exports ||= {};
+    const existing = job.exports[layout.key];
+    if (existing && ['queued', 'rendering', 'ready'].includes(existing.state)) return existing;
+    const output = job.exports[layout.key] = { formatId, framing, width: layout.width, height: layout.height, state: 'queued', updatedAt: Date.now() };
+    // Serialize renders so ten captures plus previews cannot spawn unlimited encoders.
+    const work = this.exportWork.catch(() => {}).then(async () => {
+      try {
+        output.state = 'rendering'; output.updatedAt = Date.now(); await this.save();
+        const destination = join(this.directory, `${id}.${layout.key}.mp4`);
+        await this.convert(['-y', '-i', join(this.directory, `${id}.mp4`), '-map', '0:v:0', '-map', '0:a:0?',
+          '-vf', layout.filter, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22', '-pix_fmt', 'yuv420p', '-r', '30',
+          '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', destination]);
+        output.bytes = (await stat(destination)).size; output.state = 'ready'; delete output.error;
+      } catch (error) { output.state = 'failed'; output.error = error.message; }
+      output.updatedAt = Date.now(); await this.save();
+    });
+    this.exportPromises.set(`${id}.${layout.key}`, work); this.exportWork = work;
+    await this.save(); return output;
+  }
+  async prepareExport(id, formatId, framing = 'safe') {
+    const layout = exportLayout(formatId, framing);
+    const output = await this.requestExport(id, formatId, framing);
+    await this.exportPromises.get(`${id}.${layout.key}`);
+    if (output.state !== 'ready') throw new Error(output.error || 'Export is not ready');
+    return join(this.directory, `${id}.${layout.key}.mp4`);
+  }
   async process() {
     if (this.running || this.paused) return;
     this.running = true;
@@ -183,12 +219,21 @@ export class PublisherQueue {
             this.transition(job, 'ready'); await this.save();
           }
           if (this.paused || job.held || this.config.mode === 'local' || !this.key) continue;
-          const form = new FormData();
-          form.set('file', new Blob([await readFile(output)], { type: 'video/mp4' }), `${job.id}.mp4`);
-          form.set('adjust', 'false');
           this.transition(job, 'uploading'); await this.save();
-          const media = await postizRequest(this.config.postizBaseUrl, this.key, '/upload', { method: 'POST', body: form }, this.request);
-          if (!media.id || !media.path) throw new Error('Postiz returned invalid media metadata');
+          const uploaded = new Map(), byChannel = {};
+          for (const channel of this.config.channels) {
+            const path = channel.format ? await this.prepareExport(job.id, channel.format, channel.framing || 'safe') : output;
+            if (!uploaded.has(path)) {
+              const form = new FormData();
+              form.set('file', new Blob([await readFile(path)], { type: 'video/mp4' }), `${job.id}.mp4`);
+              form.set('adjust', 'false');
+              const asset = await postizRequest(this.config.postizBaseUrl, this.key, '/upload', { method: 'POST', body: form }, this.request);
+              if (!asset.id || !asset.path) throw new Error('Postiz returned invalid media metadata');
+              uploaded.set(path, asset);
+            }
+            byChannel[channel.id] = uploaded.get(path);
+          }
+          const media = { ...byChannel[this.config.channels[0].id], byChannel };
           if (this.paused || job.held) { this.transition(job, 'ready', 'Media upload finished; submission paused'); await this.save(); continue; }
           // Persist intent before creating the post. A lost HTTP response must
           // never automatically create duplicate posts on the next startup.

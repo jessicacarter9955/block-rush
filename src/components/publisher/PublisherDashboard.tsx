@@ -4,9 +4,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpRight, Bot, Check, CheckCircle2, ChevronRight, Clock3, ExternalLink, Film, Gem, HardDrive, LayoutDashboard, ListVideo, LoaderCircle, Pause, Play, Radio, RefreshCw, Search, Send, ShieldAlert, SlidersHorizontal, Video, WifiOff, X, Youtube } from 'lucide-react';
 import { BP } from '@/lib/bp';
 import styles from './dashboard.module.css';
+import { SocialPreview, type SocialExport } from './SocialPreview';
 
 type Destination = {postId:string;integration:string;state:string;url?:string;error?:string};
-type Job = {id:string;title:string;state:string;held?:boolean;recordingFailed?:boolean;error?:string;createdAt?:number;updatedAt?:number;scheduledAt:number;submittedAt?:number;preparedAt?:number;duration?:number;outputBytes?:number;lastCheckedAt?:number;destinations?:Destination[];receipts?:{postId:string;integration:string}[];history?:{at:number;state:string;note?:string}[]};
+type Job = {exports?:Record<string,SocialExport>;id:string;title:string;state:string;held?:boolean;recordingFailed?:boolean;error?:string;createdAt?:number;updatedAt?:number;scheduledAt:number;submittedAt?:number;preparedAt?:number;duration?:number;outputBytes?:number;lastCheckedAt?:number;destinations?:Destination[];receipts?:{postId:string;integration:string}[];history?:{at:number;state:string;note?:string}[]};
 type Status = {token:string;mode:string;ffmpeg:boolean;postiz:boolean;channels:{id:string;provider:string;visibility?:string;name?:string;disabled?:boolean;verified?:boolean}[];jobs:Job[];matched:number;intervalMinutes:number;
   stats:{total:number;counts:Record<string,number>;held:number;bytes:number;seconds:number;active:string|null};
   worker:{paused:boolean;running:boolean;startedAt:number;now:number};remote:{checkedAt:number|null;error:string|null;syncing:boolean};
@@ -58,7 +59,7 @@ export function PublisherDashboard(){
     const keydown=(event:KeyboardEvent)=>{
       if(event.key==='Escape')setSelected(null);
       if(event.key==='Tab'){
-        const items=drawer.current?.querySelectorAll<HTMLElement>('button:not(:disabled),a[href],video[controls],input:not(:disabled)');
+        const items=drawer.current?.querySelectorAll<HTMLElement>('button:not(:disabled),a[href],video[controls],input:not(:disabled),select:not(:disabled)');
         if(!items?.length)return;
         const first=items[0],last=items[items.length-1];
         if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
@@ -163,10 +164,10 @@ export function PublisherDashboard(){
     </main>
 
     {current&&<div className={styles.drawerBackdrop} onClick={()=>setSelected(null)}><section ref={drawer} className={styles.drawer} role="dialog" aria-modal="true" aria-label="Clip details" onClick={event=>event.stopPropagation()}><div className={styles.drawerHeader}><div><small>CLIP DETAILS</small><h2>{current.title}</h2></div><button autoFocus className={styles.iconButton} aria-label="Close clip details" onClick={()=>setSelected(null)}><X size={20}/></button></div><Badge state={current.state} held={current.held}/>
-      {current.preparedAt&&<div className={styles.preview}>{preview?<video src={preview} controls playsInline/>:<button disabled={previewBusy} onClick={()=>void loadMedia(current)}>{previewBusy?<LoaderCircle className={styles.spin}/>:<Play/>}<span>{previewBusy?'Loading clip…':'Preview clip'}</span></button>}</div>}
+      {current.preparedAt&&data&&<SocialPreview key={current.id} id={current.id} token={data.token} exports={current.exports} refresh={refresh}/>}
       <div className={styles.detailsGrid}><div><small>CREATED</small>{date(current.createdAt)}</div><div><small>DURATION</small>{duration(current.duration)}</div><div><small>SCHEDULE</small>{date(current.scheduledAt)}</div><div><small>FILE SIZE</small>{bytes(current.outputBytes)}</div></div>
       {current.error&&<div className={styles.errorBox}>{current.error}</div>}
-      <div className={styles.drawerActions}>{current.preparedAt&&<button className={styles.button} onClick={()=>void loadMedia(current,true)} disabled={previewBusy}><ArrowDownToLine size={16}/>Download MP4</button>}{current.state==='failed'&&!current.recordingFailed&&!current.receipts?.length&&<button className={styles.button} disabled={Boolean(busy)} onClick={()=>void action(`jobs/${current.id}/retry`,'retry')}><RefreshCw size={15}/>Retry</button>}{['captured','ready','failed'].includes(current.state)&&<button className={styles.button} disabled={Boolean(busy)} onClick={()=>void action(`jobs/${current.id}/${current.held?'release':'hold'}`,current.held?'release':'hold')}>{current.held?<Play size={15}/>:<Pause size={15}/>} {current.held?'Release clip':'Hold clip'}</button>}</div>
+      <div className={styles.drawerActions}>{current.preparedAt&&<button className={styles.button} onClick={()=>void loadMedia(current,true)} disabled={previewBusy}><ArrowDownToLine size={16}/>Original MP4</button>}{current.state==='failed'&&!current.recordingFailed&&!current.receipts?.length&&<button className={styles.button} disabled={Boolean(busy)} onClick={()=>void action(`jobs/${current.id}/retry`,'retry')}><RefreshCw size={15}/>Retry</button>}{['captured','ready','failed'].includes(current.state)&&<button className={styles.button} disabled={Boolean(busy)} onClick={()=>void action(`jobs/${current.id}/${current.held?'release':'hold'}`,current.held?'release':'hold')}>{current.held?<Play size={15}/>:<Pause size={15}/>} {current.held?'Release clip':'Hold clip'}</button>}</div>
       <h3 className={styles.detailTitle}>Destinations</h3>{current.destinations?.length?current.destinations.map(destination=><div className={styles.remoteResult} key={destination.postId}><div><strong>{data?.channels.find(c=>c.id===destination.integration)?.name||destination.integration}</strong><small>{destination.state}</small></div>{safeUrl(destination.url)&&<a href={safeUrl(destination.url)} target="_blank" rel="noopener">View post<ExternalLink size={13}/></a>}{destination.error&&<p>{destination.error}</p>}</div>):<p className={styles.muted}>{current.receipts?.length?`${current.receipts.length} submitted destinations. Sync to confirm platform status.`:'This clip has not been submitted to a channel.'}</p>}
       <h3 className={styles.detailTitle}>Activity</h3><ol className={styles.timeline}>{[...(current.history||[])].reverse().map((event,index)=><li key={`${event.at}-${index}`}><span><Activity size={13}/></span><div><strong>{LABELS[event.state]||event.state}</strong><small>{date(event.at)}</small>{event.note&&<p>{event.note}</p>}</div></li>)}</ol><code className={styles.clipId}>{current.id}</code>
     </section></div>}

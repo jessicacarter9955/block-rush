@@ -1,6 +1,6 @@
 # BlockRush batch recording, publishing and live
 
-Branch: `codex/youtube-bot-publishing`. Web package version: `1.3.0`.
+Branch: `codex/youtube-bot-publishing`. Web package version: `1.4.0`.
 
 The GitHub Pages game remains a static site. Upload credentials and live stream
 keys belong in a worker, never in browser code or GitHub Pages assets. This
@@ -34,6 +34,53 @@ opens separately and refreshes every five seconds.
 No accounts, social view counts, revenue or example jobs are fabricated. This
 dashboard uses the local worker; the exported page on GitHub Pages explains
 how to open it locally. Channel credentials remain in the worker configuration.
+
+### Social previews and exports
+
+Open any ready clip in the queue. **Social destination** changes the preview's
+aspect ratio, output dimensions and optional simulated app interface:
+
+| Destinations | Export size | Aspect ratio |
+| --- | --- | --- |
+| YouTube Shorts, Instagram Reels, TikTok, Snapchat Spotlight, Douyin | 1080 × 1920 | 9:16 |
+| Instagram / Facebook feed | 1080 × 1350 | 4:5 |
+| Square feed | 1080 × 1080 | 1:1 |
+| YouTube landscape, Bilibili landscape | 1920 × 1080 | 16:9 |
+
+These are project export presets, not a promise that every platform/account
+accepts every publishing method. **Protect gameplay** fits the complete recording
+inside the guide area; **Full frame** uses the whole canvas. Neither crops the
+board. Wider canvases retain space beside a portrait recording. Padding is dark
+blue in both the framing preview and MP4.
+
+**Render … MP4** queues an actual H.264 export at the selected resolution. Once
+ready, **Play export** plays that file and **Download** saves it. Audio is retained
+when present in the original; silent recordings remain silent. The original MP4
+and all ten previously recorded clips are preserved. Exports are cached per clip,
+destination and framing mode; rendering is serialized. Failed/interrupted exports
+can be rendered again without retrying a social post.
+
+Interface graphics and dashed safe areas are **approximate preview guides**.
+They are not burned into the export, and are not official pixel-exact platform
+templates. UI, captions, devices and app versions can change the visible area.
+YouTube accepts square/vertical Shorts, while its ordinary watch page can use a
+wider format ([YouTube Help](https://support.google.com/youtube/answer/15424877)).
+TikTok's API supports H.264 MP4 at 23–60 fps
+([media requirements](https://developers.tiktok.com/docs/en/content-posting-api-media-transfer-guide));
+TikTok explicitly says safe zones depend on dimensions, captions and additions
+([safe-zone guidance](https://ads.tiktok.com/resources/help/article/tiktok-auction-in-feed-ads?redirected=1)).
+
+For automatic publishing, set `format` and optional `framing` on each configured
+channel (see `publisher/config.example.json`). For example, use
+`"format": "youtube-shorts", "framing": "safe"` for one channel and
+`"format": "instagram-feed", "framing": "fit"` for another. The worker renders
+and uploads the matching file per destination; channels sharing the same variant
+reuse the media upload. Omitting `format` keeps the original MP4 behavior.
+Preview selection alone does not alter your channel configuration or publish.
+
+Authenticated API: `POST /api/publisher/exports/CLIP_ID?format=instagram-feed&framing=safe`
+and `GET /api/publisher/download/CLIP_ID?format=instagram-feed&framing=safe`.
+Render states and metadata are included in each job's `exports` in the status API.
 
 ## Start on this PC
 

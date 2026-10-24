@@ -10,6 +10,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { WebSocketServer } from 'ws';
 import { PublisherQueue } from './core.mjs';
 import { ParallelRecorder } from './parallel.mjs';
+import { exportLayout } from './formats.mjs';
 
 export function trustedRequest(request, origin) {
   return request.headers.host === new URL(origin).host &&
@@ -49,7 +50,7 @@ export async function createPublisher({ directory, config = {}, key, root, port 
           token, mode: queue.config.mode, ffmpeg: ffmpegReady, postiz: Boolean(queue.key),
           channels: queue.config.channels.map(c => {
             const remote = queue.remote.channels.find(remote => remote.id === c.id);
-            return { id: c.id, provider: c.settings.__type, visibility: c.settings.type, verified: Boolean(remote), ...remote };
+            return { id: c.id, provider: c.settings.__type, visibility: c.settings.type, format: c.format, framing: c.framing || 'safe', verified: Boolean(remote), ...remote };
           }),
           liveConfigured: Boolean(streamUrl), liveState,
           live: { startedAt: liveStartedAt, bytes: liveBytes, lastChunkAt },
@@ -57,12 +58,18 @@ export async function createPublisher({ directory, config = {}, key, root, port 
           telemetry, stats: queue.summary(), remote: { checkedAt: queue.remote.checkedAt, error: queue.remote.error, syncing: queue.syncing },
           intervalMinutes: queue.config.intervalMinutes, matched: filtered.length,
           parallel: parallel.info,
-          jobs: filtered.slice(offset, offset + limit).map(({ id, title, state, held, recordingFailed, error, createdAt, updatedAt, scheduledAt, submittedAt, duration, outputBytes, preparedAt, receipts, destinations, history, lastCheckedAt }) =>
-            ({ id, title, state, held, recordingFailed, error, createdAt, updatedAt, scheduledAt, submittedAt, duration, outputBytes, preparedAt, receipts, destinations, history, lastCheckedAt })),
+          jobs: filtered.slice(offset, offset + limit).map(({ id, title, state, held, recordingFailed, error, createdAt, updatedAt, scheduledAt, submittedAt, duration, outputBytes, preparedAt, receipts, destinations, history, lastCheckedAt, exports }) =>
+            ({ id, title, state, held, recordingFailed, error, createdAt, updatedAt, scheduledAt, submittedAt, duration, outputBytes, preparedAt, receipts, destinations, history, lastCheckedAt, exports })),
         });
       }
       if (url.pathname.startsWith('/api/publisher/')) {
         if (req.headers.authorization !== `Bearer ${token}`) return json(res, 401, { error: 'Refresh the publisher session.' });
+        const exportMatch = /^\/api\/publisher\/exports\/([a-f0-9-]{36})$/.exec(url.pathname);
+        if (req.method === 'POST' && exportMatch) {
+          if (!ffmpegReady) return json(res, 503, { error: 'FFmpeg is required for social exports' });
+          try { return json(res, 202, { output: await queue.requestExport(exportMatch[1], url.searchParams.get('format'), url.searchParams.get('framing') || 'safe') }); }
+          catch (error) { return json(res, 409, { error: error.message }); }
+        }
         if (req.method === 'POST' && url.pathname === '/api/publisher/parallel/start') {
           if (!ffmpegReady) return json(res, 503, { error: 'FFmpeg is required for parallel video output' });
           try {
@@ -131,9 +138,16 @@ export async function createPublisher({ directory, config = {}, key, root, port 
         if (match && req.method === 'GET') {
           const job = queue.jobs.find(j => j.id === match[1]);
           if (!job) return json(res, 404, { error: 'Recording not found' });
-          const path = join(directory, `${job.id}.mp4`);
+          const formatId = url.searchParams.get('format');
+          let suffix = '';
+          if (formatId) {
+            const layout = exportLayout(formatId, url.searchParams.get('framing') || 'safe');
+            if (job.exports?.[layout.key]?.state !== 'ready') return json(res, 409, { error: 'Render this social format before downloading' });
+            suffix = `.${layout.key}`;
+          }
+          const path = join(directory, `${job.id}${suffix}.mp4`);
           const info = await stat(path);
-          res.writeHead(200, { 'Content-Type': 'video/mp4', 'Content-Length': info.size, 'Content-Disposition': `attachment; filename="blockrush-${job.id}.mp4"` });
+          res.writeHead(200, { 'Content-Type': 'video/mp4', 'Content-Length': info.size, 'Content-Disposition': `attachment; filename="blockrush-${job.id}${suffix}.mp4"` });
           createReadStream(path).pipe(res); return;
         }
         return json(res, 404, { error: 'Unknown publisher command' });

@@ -5,6 +5,8 @@
   "channels": [],
   "channelExample": {
     "id": "COPY_CONNECTED_POSTIZ_CHANNEL_ID",
+    "format": "youtube-shorts",
+    "framing": "safe",
     "settings": {
       "__type": "youtube",
       "type": "private",
