@@ -6,14 +6,15 @@ import { BP } from '@/lib/bp';
 import styles from './dashboard.module.css';
 
 type Destination = {postId:string;integration:string;state:string;url?:string;error?:string};
-type Job = {id:string;title:string;state:string;held?:boolean;error?:string;createdAt?:number;updatedAt?:number;scheduledAt:number;submittedAt?:number;preparedAt?:number;duration?:number;outputBytes?:number;lastCheckedAt?:number;destinations?:Destination[];receipts?:{postId:string;integration:string}[];history?:{at:number;state:string;note?:string}[]};
+type Job = {id:string;title:string;state:string;held?:boolean;recordingFailed?:boolean;error?:string;createdAt?:number;updatedAt?:number;scheduledAt:number;submittedAt?:number;preparedAt?:number;duration?:number;outputBytes?:number;lastCheckedAt?:number;destinations?:Destination[];receipts?:{postId:string;integration:string}[];history?:{at:number;state:string;note?:string}[]};
 type Status = {token:string;mode:string;ffmpeg:boolean;postiz:boolean;channels:{id:string;provider:string;visibility?:string;name?:string;disabled?:boolean;verified?:boolean}[];jobs:Job[];matched:number;intervalMinutes:number;
   stats:{total:number;counts:Record<string,number>;held:number;bytes:number;seconds:number;active:string|null};
   worker:{paused:boolean;running:boolean;startedAt:number;now:number};remote:{checkedAt:number|null;error:string|null;syncing:boolean};
   liveConfigured:boolean;liveState:string;live:{startedAt:number|null;bytes:number;lastChunkAt:number|null};
   telemetry:{at:number;botRunning:boolean;speed:number;score:number;moves:number;lines:number;capture:string|null;elapsed:number;clips:number}|null};
+type ParallelBatch = { id:string;active:boolean;state:string;count:number;seconds:number;startedAt:number|null;endsAt:number|null;completed:number;failed:number;error?:string };
 
-const LABELS:Record<string,string>={captured:'Waiting',converting:'Converting',uploading:'Uploading',ready:'Ready',sending:'Submitting',draft:'Draft',scheduled:'Scheduled',published:'Published',failed:'Failed',unknown:'Needs review',remote_failed:'Platform error',partial:'Partly published'};
+const LABELS:Record<string,string>={starting:'Starting bot',recording:'Recording',captured:'Waiting',converting:'Converting',uploading:'Uploading',ready:'Ready',sending:'Submitting',draft:'Draft',scheduled:'Scheduled',published:'Published',failed:'Failed',unknown:'Needs review',remote_failed:'Platform error',partial:'Partly published'};
 const number=(n=0)=>new Intl.NumberFormat('en').format(n);
 const bytes=(n=0)=>n>=1073741824?`${(n/1073741824).toFixed(1)} GB`:n>=1048576?`${(n/1048576).toFixed(1)} MB`:`${Math.round(n/1024)} KB`;
 const date=(value?:number|null)=>value?new Date(value).toLocaleString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
@@ -21,12 +22,13 @@ const duration=(value?:number)=>value?`${Math.floor(value/60)}:${String(Math.flo
 const safeUrl=(value?:string)=>{try{const url=new URL(value||'');return ['http:','https:'].includes(url.protocol)?url.href:undefined;}catch{return undefined;}};
 
 function Badge({state,held}:{state:string;held?:boolean}){
-  const tone=held?'held':['published','ready'].includes(state)?'good':['failed','unknown','remote_failed','partial'].includes(state)?'error':['converting','uploading','sending'].includes(state)?'active':'neutral';
+  const tone=held?'held':['published','ready'].includes(state)?'good':['failed','unknown','remote_failed','partial'].includes(state)?'error':['starting','recording','converting','uploading','sending'].includes(state)?'active':'neutral';
   return <span className={`${styles.badge} ${styles[tone]}`}><i/>{held?'On hold':LABELS[state]||state}</span>;
 }
 
 export function PublisherDashboard(){
-  const [data,setData]=useState<Status|null>(null),[error,setError]=useState(''),[loading,setLoading]=useState(true),[busy,setBusy]=useState('');
+  const [data,setData]=useState<(Status&{parallel?:ParallelBatch|null})|null>(null),[error,setError]=useState(''),[loading,setLoading]=useState(true),[busy,setBusy]=useState('');
+  const [parallelCount,setParallelCount]=useState(10),[parallelSeconds,setParallelSeconds]=useState(60);
   const [filter,setFilter]=useState('all'),[search,setSearch]=useState(''),[query,setQuery]=useState(''),[offset,setOffset]=useState(0),[refreshed,setRefreshed]=useState<number|null>(null);
   const [selected,setSelected]=useState<Job|null>(null),[preview,setPreview]=useState(''),[previewBusy,setPreviewBusy]=useState(false),[notice,setNotice]=useState('');
   const media=useRef(''),previewController=useRef<AbortController|null>(null),mounted=useRef(true),refreshGeneration=useRef(0),drawer=useRef<HTMLElement|null>(null),lastFocus=useRef<HTMLElement|null>(null);
@@ -37,7 +39,7 @@ export function PublisherDashboard(){
     try{
       const response=await fetch(`/api/publisher/status?${new URLSearchParams({filter,q:query,offset:String(offset),limit:String(limit)})}`,{cache:'no-store'});
       if(!response.ok)throw new Error('The local publishing worker is unavailable.');
-      const value=await response.json() as Status;
+      const value=await response.json() as Status&{parallel?:ParallelBatch|null};
       if(!value.worker||!value.stats)throw new Error('Restart the publishing worker to load the dashboard update.');
       if(mounted.current&&generation===refreshGeneration.current){setData(value);setError('');setRefreshed(Date.now());}
     }catch(cause){if(mounted.current&&generation===refreshGeneration.current)setError(cause instanceof Error?cause.message:'Could not reach the publishing worker.');}
@@ -70,7 +72,7 @@ export function PublisherDashboard(){
     setBusy(label);setNotice('');
     try{const response=await fetch(`/api/publisher/${path}`,{method:'POST',headers:{Authorization:`Bearer ${data.token}`}});
       const result=await response.json();if(!response.ok)throw new Error(result.error||'Command failed.');
-      setNotice(label==='sync'?'Publication status refreshed.':label==='pause'?'Queue paused. Any step already in progress will finish.':label==='resume'?'Queue resumed.':'Clip updated.');await refresh();
+      setNotice(label==='parallel'?'Parallel recording batch started.':label==='stop-parallel'?'Stopping the parallel recordings.':label==='sync'?'Publication status refreshed.':label==='pause'?'Queue paused. Any step already in progress will finish.':label==='resume'?'Queue resumed.':'Clip updated.');await refresh();
     }catch(cause){setNotice(cause instanceof Error?cause.message:'Command failed.');}
     finally{setBusy('');}
   };
@@ -118,7 +120,7 @@ export function PublisherDashboard(){
       {notice&&<div className={styles.notice} role="status">{notice}<button aria-label="Dismiss message" onClick={()=>setNotice('')}><X size={16}/></button></div>}
       <section className={styles.metrics} aria-label="Publishing statistics">
         {[
-          {label:'Clips captured',value:total,icon:Film,detail:`${duration(data?.stats.seconds)} of recorded footage`,filter:'all'},
+          {label:'Total clips',value:total,icon:Film,detail:`${duration(data?.stats.seconds)} of recorded footage`,filter:'all'},
           {label:'Ready to publish',value:counts.ready||0,icon:Play,detail:data?.mode==='local'?'Saved locally · upload not enabled':'Prepared MP4 clips',filter:'ready'},
           {label:'Scheduled',value:counts.scheduled||0,icon:Clock3,detail:'Accepted by the scheduler',filter:'scheduled'},
           {label:'Published',value:counts.published||0,icon:CheckCircle2,detail:'Confirmed by Postiz',filter:'published'},
@@ -130,6 +132,8 @@ export function PublisherDashboard(){
         <div className={styles.statusCard}><span className={styles.cardIcon}><Radio size={22}/></span><div><small>LIVE ENCODER</small><strong>{data?.liveState==='encoding'?(data.live.lastChunkAt&&Date.now()-data.live.lastChunkAt<15000?'Sending video':'Waiting for video'):data?.liveState==='failed'?'Encoder stopped':data?.liveConfigured?'Ready to connect':'Not configured'}</strong><p>{data?.liveState==='encoding'?`${bytes(data.live.bytes)} sent · destination status is separate`:'RTMP output · configure a destination to stream'}</p></div></div>
         <div className={styles.statusCard}><span className={styles.cardIcon}><HardDrive size={22}/></span><div><small>LOCAL LIBRARY</small><strong>{bytes(data?.stats.bytes)}</strong><p>{data?.stats.held||0} held · {attention} need attention · {counts.draft||0} drafts</p></div></div>
       </section>
+
+      <section className={styles.parallelBar} aria-label="Parallel video production"><div><strong><Video size={17}/>Parallel video production</strong><p>{data?.parallel?.active?(data.parallel.state==='recording'?`${data.parallel.count} independent sessions recording · ${Math.max(0,Math.ceil(((data.parallel.endsAt||Date.now())-Date.now())/1000))}s remaining`:data.parallel.state==='starting'?'Starting independent bot sessions…':'Finalizing recordings…'):data?.parallel?`${data.parallel.completed}/${data.parallel.count} captured · ${data.parallel.failed} failed · ${data.parallel.state}`:'Record independent games at the same time. Clips enter this queue automatically.'}</p>{data?.parallel?.error&&<p className={styles.errorText}>{data.parallel.error}</p>}</div><div className={styles.parallelControls}><label>Videos<input aria-label="Parallel video count" type="number" min={1} max={10} value={parallelCount} disabled={Boolean(data?.parallel?.active||busy)} onChange={e=>setParallelCount(Math.max(1,Math.min(10,Number(e.target.value)||1)))}/></label><label>Seconds<input aria-label="Parallel video duration" type="number" min={6} max={60} value={parallelSeconds} disabled={Boolean(data?.parallel?.active||busy)} onChange={e=>setParallelSeconds(Math.max(6,Math.min(60,Number(e.target.value)||6)))}/></label>{data?.parallel?.active?<button className={styles.button} disabled={Boolean(busy)} onClick={()=>void action('parallel/stop','stop-parallel')}><Pause size={15}/>Stop recordings</button>:<button className={styles.primary} disabled={!data?.ffmpeg||Boolean(busy)} onClick={()=>void action(`parallel/start?count=${parallelCount}&seconds=${parallelSeconds}&speed=4`,'parallel')}><Play size={15}/>Start parallel batch</button>}</div></section>
 
       <div className={styles.contentGrid}>
         <section className={styles.queue} id="queue">
@@ -162,7 +166,7 @@ export function PublisherDashboard(){
       {current.preparedAt&&<div className={styles.preview}>{preview?<video src={preview} controls playsInline/>:<button disabled={previewBusy} onClick={()=>void loadMedia(current)}>{previewBusy?<LoaderCircle className={styles.spin}/>:<Play/>}<span>{previewBusy?'Loading clip…':'Preview clip'}</span></button>}</div>}
       <div className={styles.detailsGrid}><div><small>CREATED</small>{date(current.createdAt)}</div><div><small>DURATION</small>{duration(current.duration)}</div><div><small>SCHEDULE</small>{date(current.scheduledAt)}</div><div><small>FILE SIZE</small>{bytes(current.outputBytes)}</div></div>
       {current.error&&<div className={styles.errorBox}>{current.error}</div>}
-      <div className={styles.drawerActions}>{current.preparedAt&&<button className={styles.button} onClick={()=>void loadMedia(current,true)} disabled={previewBusy}><ArrowDownToLine size={16}/>Download MP4</button>}{current.state==='failed'&&!current.receipts?.length&&<button className={styles.button} disabled={Boolean(busy)} onClick={()=>void action(`jobs/${current.id}/retry`,'retry')}><RefreshCw size={15}/>Retry</button>}{['captured','ready','failed'].includes(current.state)&&<button className={styles.button} disabled={Boolean(busy)} onClick={()=>void action(`jobs/${current.id}/${current.held?'release':'hold'}`,current.held?'release':'hold')}>{current.held?<Play size={15}/>:<Pause size={15}/>} {current.held?'Release clip':'Hold clip'}</button>}</div>
+      <div className={styles.drawerActions}>{current.preparedAt&&<button className={styles.button} onClick={()=>void loadMedia(current,true)} disabled={previewBusy}><ArrowDownToLine size={16}/>Download MP4</button>}{current.state==='failed'&&!current.recordingFailed&&!current.receipts?.length&&<button className={styles.button} disabled={Boolean(busy)} onClick={()=>void action(`jobs/${current.id}/retry`,'retry')}><RefreshCw size={15}/>Retry</button>}{['captured','ready','failed'].includes(current.state)&&<button className={styles.button} disabled={Boolean(busy)} onClick={()=>void action(`jobs/${current.id}/${current.held?'release':'hold'}`,current.held?'release':'hold')}>{current.held?<Play size={15}/>:<Pause size={15}/>} {current.held?'Release clip':'Hold clip'}</button>}</div>
       <h3 className={styles.detailTitle}>Destinations</h3>{current.destinations?.length?current.destinations.map(destination=><div className={styles.remoteResult} key={destination.postId}><div><strong>{data?.channels.find(c=>c.id===destination.integration)?.name||destination.integration}</strong><small>{destination.state}</small></div>{safeUrl(destination.url)&&<a href={safeUrl(destination.url)} target="_blank" rel="noopener">View post<ExternalLink size={13}/></a>}{destination.error&&<p>{destination.error}</p>}</div>):<p className={styles.muted}>{current.receipts?.length?`${current.receipts.length} submitted destinations. Sync to confirm platform status.`:'This clip has not been submitted to a channel.'}</p>}
       <h3 className={styles.detailTitle}>Activity</h3><ol className={styles.timeline}>{[...(current.history||[])].reverse().map((event,index)=><li key={`${event.at}-${index}`}><span><Activity size={13}/></span><div><strong>{LABELS[event.state]||event.state}</strong><small>{date(event.at)}</small>{event.note&&<p>{event.note}</p>}</div></li>)}</ol><code className={styles.clipId}>{current.id}</code>
     </section></div>}

@@ -74,6 +74,7 @@ export class PublisherQueue {
       if (job.state === 'sending') { job.state = 'unknown'; job.error = 'Worker restarted during submission. Check Postiz; do not automatically resubmit.'; }
       if (job.state === 'converting') job.state = 'captured';
       if (job.state === 'uploading') job.state = 'ready';
+      if (['starting', 'recording'].includes(job.state)) { this.transition(job, 'failed'); job.error = 'The recording worker stopped before this clip finished. Start a new recording batch.'; job.recordingFailed = true; }
     }
     await this.save();
   }
@@ -96,7 +97,7 @@ export class PublisherQueue {
     const job = this.jobs.find(item => item.id === id);
     if (!job) throw new Error('Clip not found');
     if (action === 'retry') {
-      if (job.state !== 'failed' || job.receipts?.length) throw new Error('Only a local conversion or upload failure can be retried. Reconcile submitted posts in Postiz.');
+      if (job.state !== 'failed' || job.receipts?.length || job.recordingFailed) throw new Error('Only a local conversion or upload failure can be retried. Start a new batch for failed recordings; reconcile submitted posts in Postiz.');
       delete job.error; this.transition(job, job.preparedAt ? 'ready' : 'captured', 'Retry requested');
     } else if (action === 'hold' || action === 'release') {
       if (!['captured', 'ready', 'failed'].includes(job.state)) throw new Error('This clip has already started processing or was submitted');
@@ -111,7 +112,7 @@ export class PublisherQueue {
     return { total: this.jobs.length, counts, held: this.jobs.filter(j => j.held).length,
       bytes: this.jobs.reduce((sum, j) => sum + (j.outputBytes || 0), 0),
       seconds: this.jobs.reduce((sum, j) => sum + (j.duration || 0), 0),
-      active: this.jobs.find(j => ['converting', 'uploading', 'sending'].includes(j.state))?.id || null };
+      active: this.jobs.find(j => ['starting', 'recording', 'converting', 'uploading', 'sending'].includes(j.state))?.id || null };
   }
   async sync() {
     if (this.syncing) return;
@@ -155,11 +156,11 @@ export class PublisherQueue {
     } catch (error) { this.remote.error = error.message; throw error; }
     finally { this.syncing = false; }
   }
-  async add(job) {
+  async add(job, { state = 'captured' } = {}) {
     if (this.jobs.some(existing => existing.id === job.id || (job.hash && existing.hash === job.hash))) return false;
     const lastSlot = this.jobs.reduce((latest, existing) => Math.max(latest, existing.scheduledAt || 0), 0);
     job.scheduledAt = Math.max(Date.now() + 60_000, lastSlot + this.config.intervalMinutes * 60_000);
-    job.createdAt = Date.now(); this.transition(job, 'captured'); this.jobs.push(job); await this.save(); return true;
+    job.createdAt = Date.now(); this.transition(job, state); this.jobs.push(job); await this.save(); return true;
   }
   async process() {
     if (this.running || this.paused) return;
@@ -173,8 +174,9 @@ export class PublisherQueue {
           const output = join(this.directory, `${job.id}.mp4`);
           if (job.state === 'captured') {
             this.transition(job, 'converting'); await this.save();
-            await this.convert(['-y', '-i', join(this.directory, job.source), '-map', '0:v:0', '-map', '0:a:0?',
-              '-vf', 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2',
+            await this.convert(['-y', ...(job.trimStart > 0 ? ['-ss', String(job.trimStart)] : []), '-i', join(this.directory, job.source), '-map', '0:v:0', '-map', '0:a:0?',
+              '-vf', `scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2${job.captureLimit ? `,tpad=stop_mode=clone:stop_duration=${job.captureLimit}` : ''}`,
+              ...(job.captureLimit ? ['-t', String(job.captureLimit)] : []),
               '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22', '-pix_fmt', 'yuv420p', '-r', '30',
               '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', output]);
             job.preparedAt = Date.now(); job.outputBytes = (await stat(output)).size;

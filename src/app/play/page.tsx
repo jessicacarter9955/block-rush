@@ -105,6 +105,7 @@ export default function PlayPage() {
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     if (q.get('clean') === '1') setClean(true);
+    if (q.get('restart') === '1') setAutoRestart(true);
     // build "solo gioco": un'unica versione, Block Rush 1:1
     const v = 'rush';
     setVersionId(v);

@@ -9,6 +9,7 @@ import { Transform } from 'node:stream';
 import { spawn, spawnSync } from 'node:child_process';
 import { WebSocketServer } from 'ws';
 import { PublisherQueue } from './core.mjs';
+import { ParallelRecorder } from './parallel.mjs';
 
 export function trustedRequest(request, origin) {
   return request.headers.host === new URL(origin).host &&
@@ -21,6 +22,7 @@ export async function createPublisher({ directory, config = {}, key, root, port 
   const token = randomBytes(32).toString('hex');
   const queue = new PublisherQueue(directory, config, { key, convert });
   await queue.init();
+  const parallel = new ParallelRecorder(queue, origin);
   let encoder = null, liveSocket = null, liveState = 'idle';
   let liveStartedAt = null, liveBytes = 0, lastChunkAt = null, telemetry = null;
   const startedAt = Date.now();
@@ -54,12 +56,21 @@ export async function createPublisher({ directory, config = {}, key, root, port 
           worker: { paused: queue.paused, running: queue.running, startedAt, now: Date.now() },
           telemetry, stats: queue.summary(), remote: { checkedAt: queue.remote.checkedAt, error: queue.remote.error, syncing: queue.syncing },
           intervalMinutes: queue.config.intervalMinutes, matched: filtered.length,
-          jobs: filtered.slice(offset, offset + limit).map(({ id, title, state, held, error, createdAt, updatedAt, scheduledAt, submittedAt, duration, outputBytes, preparedAt, receipts, destinations, history, lastCheckedAt }) =>
-            ({ id, title, state, held, error, createdAt, updatedAt, scheduledAt, submittedAt, duration, outputBytes, preparedAt, receipts, destinations, history, lastCheckedAt })),
+          parallel: parallel.info,
+          jobs: filtered.slice(offset, offset + limit).map(({ id, title, state, held, recordingFailed, error, createdAt, updatedAt, scheduledAt, submittedAt, duration, outputBytes, preparedAt, receipts, destinations, history, lastCheckedAt }) =>
+            ({ id, title, state, held, recordingFailed, error, createdAt, updatedAt, scheduledAt, submittedAt, duration, outputBytes, preparedAt, receipts, destinations, history, lastCheckedAt })),
         });
       }
       if (url.pathname.startsWith('/api/publisher/')) {
         if (req.headers.authorization !== `Bearer ${token}`) return json(res, 401, { error: 'Refresh the publisher session.' });
+        if (req.method === 'POST' && url.pathname === '/api/publisher/parallel/start') {
+          if (!ffmpegReady) return json(res, 503, { error: 'FFmpeg is required for parallel video output' });
+          try {
+            const batch = await parallel.start({ count: Number(url.searchParams.get('count') || 10), seconds: Number(url.searchParams.get('seconds') || 60), speed: Number(url.searchParams.get('speed') || 4) });
+            return json(res, 202, { batch });
+          } catch (error) { return json(res, 409, { error: error.message }); }
+        }
+        if (req.method === 'POST' && url.pathname === '/api/publisher/parallel/stop') { parallel.stop(); return json(res, 200, { stopping: true }); }
         if (req.method === 'POST' && url.pathname === '/api/publisher/sync') {
           try { await queue.sync(); return json(res, 200, { synced: true }); }
           catch (error) { return json(res, 409, { error: error.message }); }
@@ -180,7 +191,7 @@ export async function createPublisher({ directory, config = {}, key, root, port 
     }
   }, 10_000);
   timer.unref();
-  server.once('close', () => { clearInterval(timer); liveSocket?.terminate(); encoder?.kill(); ws.close(); });
+  server.once('close', () => { clearInterval(timer); parallel.stop(); liveSocket?.terminate(); encoder?.kill(); ws.close(); });
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); });
   void queue.process().catch(() => {});
   return { server, queue, origin };

@@ -1,13 +1,14 @@
 # BlockRush batch recording, publishing and live
 
-Branch: `codex/youtube-bot-publishing`. Web package version: `1.2.0`.
+Branch: `codex/youtube-bot-publishing`. Web package version: `1.3.0`.
 
 The GitHub Pages game remains a static site. Upload credentials and live stream
 keys belong in a worker, never in browser code or GitHub Pages assets. This
 implementation adds a **local Node worker** and an optional game control panel.
 It does not create social accounts, connect channels or publish anything by
-default. Batch capture requires one browser tab-sharing selection per session.
-The PC, browser tab and worker must remain running and awake.
+default. The audio recorder requires one browser tab-sharing selection per session;
+parallel video-only recording starts directly from the dashboard. Keep the PC
+and worker running and awake, plus the shared tab when using the audio recorder.
 
 ## Publishing dashboard
 
@@ -35,6 +36,26 @@ dashboard uses the local worker; the exported page on GitHub Pages explains
 how to open it locally. Channel credentials remain in the worker configuration.
 
 ## Start on this PC
+
+### Parallel bot recordings
+
+The dashboard's **Parallel video production** control starts 1–10 isolated
+headless Chromium game sessions. Each waits for the bot to make its first move;
+all ready sessions then record together for the selected 6–60 seconds and close
+automatically. No personal browser cookies or screen-sharing picker are used.
+Install the recorder browser once with `npx playwright install chromium`.
+
+Jobs appear immediately as Starting bot / Recording, then enter normal MP4
+conversion and the configured publishing queue. The timed gameplay portion is
+trimmed to the requested duration. Capture uses 540×960 per session to limit
+parallel load, exported as 1080×1920 MP4. These headless recordings are video-only;
+the tab-sharing recorder remains available for game audio. Ten sessions require
+more CPU and memory than a single recording.
+
+Authenticated API: `POST /api/publisher/parallel/start?count=10&seconds=60&speed=4`.
+`POST /api/publisher/parallel/stop` stops an active batch early. The dashboard
+shows batch start, deadline, completed files and recording errors. Failed
+recordings need a new batch rather than a conversion retry.
 
 Requirements: Node 20.19+ and FFmpeg on PATH (or set `FFMPEG_PATH`).
 
