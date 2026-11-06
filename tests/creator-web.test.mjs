@@ -12,6 +12,13 @@ test('the web creator contains the actual controls and game, not a GitHub-only c
   assert.match(html, /\.\.\/play\/\?bot=1/);
 });
 
+test('the studio has a watchdog to restart a stalled embedded game', async () => {
+  const script = await readFile(new URL('../public/creator/recorder.mjs', import.meta.url), 'utf8');
+  assert.match(script, /api\?\.isGameOver\?\.\(\)/);
+  assert.match(script, /Date\.now\(\) - gameOverSince > 3000/);
+  assert.match(script, /if \(Date\.now\(\) - gameOverSince > 3000\) reloadGame\(\)/);
+});
+
 test('video cropping maps a fully visible portrait preview to its tab-capture pixels', () => {
   assert.deepEqual(cropCoordinates({ left: 50, top: 100, width: 270, height: 480 },
     { width: 900, height: 700 }, { width: 1800, height: 1400 }),
