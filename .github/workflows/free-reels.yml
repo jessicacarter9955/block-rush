@@ -1,0 +1,98 @@
+name: Free Reels Generator
+
+# The dispatcher lives on main (GitHub requirement), while the recording bot
+# is developed on codex/youtube-bot-publishing. No 24/7 hosting is necessary.
+on:
+  workflow_dispatch:
+    inputs:
+      count:
+        description: Numero di video
+        type: choice
+        options: ['1', '2', '3']
+        default: '1'
+        required: true
+      seconds:
+        description: Secondi per video
+        type: choice
+        options: ['6', '15', '30', '45', '60']
+        default: '30'
+        required: true
+      speed:
+        description: Velocita bot
+        type: choice
+        options: ['2', '4', '8']
+        default: '4'
+        required: true
+      format:
+        description: Formato video
+        type: choice
+        options: ['instagram-reels', 'youtube-shorts', 'tiktok']
+        default: 'instagram-reels'
+        required: true
+      framing:
+        description: Inquadratura
+        type: choice
+        options: ['fit', 'safe']
+        default: 'fit'
+        required: true
+  push:
+    branches: [main]
+    paths: ['.github/workflows/free-reels.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: free-reels-${{ github.actor }}
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Get video generator source
+        uses: actions/checkout@v4
+        with:
+          ref: codex/youtube-bot-publishing
+          persist-credentials: false
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install application and Chromium
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Ensure FFmpeg is installed
+        run: |
+          if ! command -v ffmpeg >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
+          ffmpeg -version
+
+      - name: Build the offline game
+        run: npm run publisher:build
+
+      - name: Generate MP4 clips
+        run: npm run reels:generate
+        env:
+          REELS_COUNT: ${{ inputs.count || '1' }}
+          REELS_SECONDS: ${{ github.event_name == 'push' && '6' || inputs.seconds }}
+          REELS_SPEED: ${{ inputs.speed || '4' }}
+          REELS_FORMAT: ${{ inputs.format || 'instagram-reels' }}
+          REELS_FRAMING: ${{ inputs.framing || 'fit' }}
+
+      - name: Downloadable Reels (MP4 and manifest)
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlockRush-Reels-${{ github.run_number }}
+          path: reels/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
