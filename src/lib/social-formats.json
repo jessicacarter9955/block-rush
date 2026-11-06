@@ -1,0 +1,11 @@
+[
+  {"id":"youtube-shorts","label":"YouTube Shorts","platform":"YouTube","width":1080,"height":1920,"ratio":"9:16","safe":{"top":8,"right":18,"bottom":22,"left":5}},
+  {"id":"instagram-reels","label":"Instagram Reels","platform":"Instagram","width":1080,"height":1920,"ratio":"9:16","safe":{"top":12,"right":18,"bottom":25,"left":6}},
+  {"id":"tiktok","label":"TikTok","platform":"TikTok","width":1080,"height":1920,"ratio":"9:16","safe":{"top":10,"right":20,"bottom":23,"left":5}},
+  {"id":"snapchat","label":"Snapchat Spotlight","platform":"Snapchat","width":1080,"height":1920,"ratio":"9:16","safe":{"top":10,"right":18,"bottom":20,"left":5}},
+  {"id":"douyin","label":"Douyin · vertical","platform":"Douyin","width":1080,"height":1920,"ratio":"9:16","safe":{"top":10,"right":20,"bottom":23,"left":5}},
+  {"id":"instagram-feed","label":"Instagram / Facebook feed","platform":"Feed","width":1080,"height":1350,"ratio":"4:5","safe":{"top":4,"right":4,"bottom":8,"left":4}},
+  {"id":"square","label":"Square feed","platform":"Feed","width":1080,"height":1080,"ratio":"1:1","safe":{"top":4,"right":4,"bottom":8,"left":4}},
+  {"id":"youtube-landscape","label":"YouTube · landscape","platform":"YouTube","width":1920,"height":1080,"ratio":"16:9","safe":{"top":5,"right":5,"bottom":10,"left":5}},
+  {"id":"bilibili","label":"Bilibili · landscape","platform":"Bilibili","width":1920,"height":1080,"ratio":"16:9","safe":{"top":8,"right":5,"bottom":10,"left":5}}
+]
