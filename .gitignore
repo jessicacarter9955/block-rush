@@ -18,3 +18,4 @@ bun.lock
 public/download.html
 publisher/config.local.json
 publisher/data/
+reels/
