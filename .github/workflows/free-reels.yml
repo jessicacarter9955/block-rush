@@ -48,7 +48,9 @@ concurrency:
 
 jobs:
   generate:
-    runs-on: ubuntu-latest
+    # Playwright 1.58 supports Ubuntu 24.04; ubuntu-latest currently points to
+    # Ubuntu 26.04, which its browser installer cannot handle.
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Get video generator source
