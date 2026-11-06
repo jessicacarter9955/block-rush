@@ -80,6 +80,9 @@ function init() {
     if (!navigator.mediaDevices?.getDisplayMedia || typeof MediaRecorder === 'undefined') {
       say('Per registrare usa Chrome o Edge desktop con HTTPS.', 'error'); return;
     }
+    // Keep the entire game inside the captured tab even when the form button
+    // is lower on the page. This is synchronous, so it preserves click activation.
+    preview.scrollIntoView({ block: 'center', behavior: 'auto' });
     try {
       cropCoordinates(preview.getBoundingClientRect(), { width: innerWidth, height: innerHeight }, { width: innerWidth, height: innerHeight });
     } catch (error) { say(error.message, 'error'); return; }
