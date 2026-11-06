@@ -1,0 +1,31 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { cropCoordinates, recordingMime, reelFilename } from '../public/creator/recorder.mjs';
+
+test('the web creator contains the actual controls and game, not a GitHub-only call to action', async () => {
+  const html = await readFile(new URL('../public/creator/index.html', import.meta.url), 'utf8');
+  for (const id of ['game', 'preview', 'record', 'stop', 'download', 'resultVideo', 'seconds', 'speed']) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+  assert.match(html, /\.\/recorder\.mjs/);
+  assert.match(html, /\.\.\/play\/\?bot=1/);
+});
+
+test('video cropping maps a fully visible portrait preview to its tab-capture pixels', () => {
+  assert.deepEqual(cropCoordinates({ left: 50, top: 100, width: 270, height: 480 },
+    { width: 900, height: 700 }, { width: 1800, height: 1400 }),
+    { x: 100, y: 200, width: 540, height: 960 });
+  assert.throws(() => cropCoordinates({ left: 0, top: 100, width: 270, height: 480 },
+    { width: 900, height: 500 }, { width: 1800, height: 1000 }), /visibile/);
+});
+
+test('recorder prefers H.264 MP4, falls back to WebM, and labels files truthfully', () => {
+  assert.equal(recordingMime(mime => mime.startsWith('video/mp4')), 'video/mp4;codecs=avc1.42E01E');
+  assert.equal(recordingMime(mime => mime === 'video/webm'), 'video/webm');
+  assert.equal(recordingMime(() => false), undefined);
+  const at = new Date('2026-11-06T11:00:00Z');
+  assert.equal(reelFilename('tiktok', 'video/mp4', at), 'blockrush-tiktok-2026-11-06T11-00-00-000Z.mp4');
+  assert.match(reelFilename('instagram-reels', 'video/webm', at), /\.webm$/);
+  assert.throws(() => reelFilename('other', 'video/mp4', at));
+});

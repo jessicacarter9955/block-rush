@@ -3,38 +3,100 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0d1630">
-  <title>BlockRush · Generatore Reels gratuito</title>
+  <meta name="theme-color" content="#08152d">
+  <title>BlockRush Studio | Generatore Reels web</title>
   <style>
-    :root{color-scheme:dark;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-    *{box-sizing:border-box}
-    body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% -15%,#1d5690 0%,#10234a 35%,#080f25 80%);color:#f2f8ff;display:grid;place-items:center;padding:24px}
-    main{width:min(690px,100%);border:1px solid #5474a266;border-radius:26px;background:#101f3ede;box-shadow:0 20px 80px #0006;padding:clamp(25px,5vw,50px)}
-    .eyebrow{font-size:.83rem;letter-spacing:.16em;text-transform:uppercase;color:#81e6dc;font-weight:750}
-    h1{font-size:clamp(2.25rem,6vw,3.8rem);line-height:1.08;margin:12px 0 20px}
-    p{color:#c7d6ef;line-height:1.65;font-size:1.04rem}
-    .action{display:inline-flex;justify-content:center;align-items:center;min-height:56px;padding:14px 22px;background:linear-gradient(90deg,#2bd5c7,#7fc8ff);border-radius:13px;color:#07172c;text-decoration:none;font-weight:800;margin:18px 0 12px}
-    .action:hover,.action:focus-visible{filter:brightness(1.1);outline:3px solid #fff9;outline-offset:3px}
-    ol{padding-left:23px;line-height:1.75;color:#dfebff}li{padding:4px 0}
-    .small{font-size:.87rem;color:#97aeca;margin-top:26px}
-    a{color:#83f4e3}
-    .pill{display:inline-block;padding:5px 12px;border:1px solid #36dfc46e;border-radius:100px;background:#1c71664d;color:#8bf0dc;font-size:.83rem;font-weight:700}
+    :root{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:dark;color:#eff8ff}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 70% -15%,#234d76 0,#111d3a 38%,#090f23 80%);min-height:100vh}
+    a{color:#8bebdc}button,select{font:inherit}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.45}
+    header{display:flex;align-items:center;justify-content:space-between;gap:16px;max-width:1150px;margin:auto;padding:19px 25px}
+    .brand{font-size:19px;font-weight:850;letter-spacing:-.03em;color:#fff;text-decoration:none}.brand span{color:#38e8cc}
+    .tag{font-size:12px;border-radius:100px;background:#1c765f40;color:#92f0d8;border:1px solid #28bfa25e;padding:7px 12px}
+    main{max-width:1150px;margin:auto;padding:10px 25px 48px}
+    h1{font-size:clamp(30px,4.5vw,48px);letter-spacing:-.04em;line-height:1.09;margin:7px 0 14px}
+    .intro{color:#b9cee7;max-width:760px;line-height:1.55;margin:0 0 27px}
+    .studio{display:grid;grid-template-columns:minmax(280px,420px) minmax(310px,1fr);gap:25px;align-items:start}
+    .panel{background:#122441d9;border:1px solid #48668c77;border-radius:22px;padding:23px;box-shadow:0 15px 40px #0003}
+    .preview-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:13px;font-weight:750}
+    .preview-head span{font-size:12px;color:#95b8d7;font-weight:500}
+    .preview-shell{width:min(100%,346px);margin:auto;aspect-ratio:9/16;background:#081126;border:2px solid #4771a0;border-radius:15px;overflow:hidden;position:relative}
+    #game{width:100%;height:100%;border:0;display:block;background:#081126}
+    .preview-note{font-size:12px;color:#92aac9;margin:13px 0 0;text-align:center}
+    .settings-title{font-weight:800;font-size:19px;margin:0 0 17px}
+    label{display:flex;flex-direction:column;gap:7px;font-size:13px;color:#b8cfeb;font-weight:700}
+    select{width:100%;background:#091a32;color:#eff9ff;border:1px solid #426386;border-radius:11px;min-height:45px;padding:9px 12px}
+    .fields{display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:18px}
+    .btn{display:inline-flex;align-items:center;justify-content:center;min-height:49px;border:0;border-radius:12px;font-weight:800;text-decoration:none;padding:12px 18px;text-align:center}
+    .primary{width:100%;background:linear-gradient(95deg,#36e6c4,#93cfff);color:#08233b;font-size:17px;min-height:59px}
+    .secondary{background:#243d5e;color:#deeeff;border:1px solid #4b7098}
+    .controls{display:flex;gap:10px;margin-top:11px;flex-wrap:wrap}.controls button{flex:1}
+    .hint{padding:13px 15px;border-radius:12px;background:#0b2948;border:1px solid #2a567d;color:#bde3fc;font-size:13px;line-height:1.55;margin:18px 0}
+    .status{padding:13px 14px;border-radius:12px;background:#0b1c33;min-height:48px;font-size:13px;color:#bcd4eb;line-height:1.5}
+    .status[data-state="error"]{border:1px solid #fb7185;color:#ffc0c9}.status[data-state="recording"]{border:1px solid #f76377;color:#ffb1bc}
+    .result{display:none;border-radius:14px;border:1px solid #397f79;background:#123c42;margin-top:17px;padding:16px}
+    .result.visible{display:block}.result h2{font-size:17px;margin:0 0 12px}
+    #resultVideo{width:100%;max-height:260px;border-radius:10px;background:#000}.result-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:11px}
+    #download{background:#39dfb5;color:#062b25}#fileInfo{font-size:12px;color:#a9cfcf}
+    .alternate{border-top:1px solid #415b7b75;margin-top:24px;padding-top:19px;font-size:13px;color:#b1c6df;line-height:1.6}
+    .alternate a{display:inline-block;margin-top:5px}
+    @media(max-width:800px){header{padding:17px}main{padding:8px 17px 35px}.studio{grid-template-columns:1fr}.panel{padding:18px}.preview-shell{max-width:300px}}
+    @media(max-width:390px){.fields{grid-template-columns:1fr}.preview-shell{max-width:260px}}
   </style>
 </head>
 <body>
+  <header>
+    <a class="brand" href="../">BLOCK<span>RUSH</span> <span style="color:#b9ceea;font-weight:500">Studio</span></a>
+    <span class="tag">Generatore web gratuito</span>
+  </header>
   <main>
-    <div class="eyebrow">BlockRush Studio</div>
-    <h1>Reels pronti.<br>Server a costo zero.</h1>
-    <span class="pill">GitHub Pages + GitHub Actions</span>
-    <p>Genera video verticali MP4 del bot BlockRush per Instagram Reels, YouTube Shorts o TikTok. Non devi lasciare acceso il PC né pagare un servizio cloud sempre attivo.</p>
-    <a class="action" href="https://github.com/jessicacarter9955/block-rush/actions/workflows/free-reels.yml">Apri il generatore video ↗</a>
-    <ol>
-      <li>Su GitHub, entra in <strong>Free Reels Generator</strong> e seleziona <strong>Run workflow</strong>.</li>
-      <li>Scegli durata, piattaforma, velocità del bot e fino a 3 clip.</li>
-      <li>Apri l'esecuzione completata e scarica lo ZIP <strong>BlockRush-Reels</strong> da <strong>Artifacts</strong>.</li>
-    </ol>
-    <p class="small">Richiede l'accesso GitHub con permessi di scrittura al repository. I video sono senza audio e i download scadono dopo 30 giorni: salvali sul tuo dispositivo. Il pannello locale <code>/publisher/</code> rimane distinto da questo generatore gratuito.</p>
-    <a href="https://jessicacarter9955.github.io/block-rush/">← Torna a BlockRush</a>
+    <h1>Genera i tuoi Reels<br>direttamente qui.</h1>
+    <p class="intro">Il bot gioca in automatico; scegli durata e formato, registra la scheda e scarica il video. Nessun account GitHub, server a pagamento o installazione.</p>
+    <div class="studio">
+      <section class="panel" aria-label="Anteprima del gioco">
+        <div class="preview-head">Anteprima live <span>9:16 · gameplay automatico</span></div>
+        <div class="preview-shell" id="preview">
+          <iframe id="game" title="BlockRush gameplay automatico" src="../play/?bot=1&amp;speed=4&amp;clean=1&amp;restart=1" allow="autoplay" loading="eager"></iframe>
+        </div>
+        <p class="preview-note">Solo il riquadro di gioco viene incluso nel video.</p>
+      </section>
+      <section class="panel" aria-label="Controlli generatore Reels">
+        <h2 class="settings-title">Impostazioni del video</h2>
+        <div class="fields">
+          <label>Destinazione
+            <select id="platform"><option value="instagram-reels">Instagram Reels</option><option value="youtube-shorts">YouTube Shorts</option><option value="tiktok">TikTok</option></select>
+          </label>
+          <label>Durata
+            <select id="seconds"><option value="6">6 secondi (prova)</option><option value="15">15 secondi</option><option value="30" selected>30 secondi</option><option value="45">45 secondi</option><option value="60">60 secondi</option></select>
+          </label>
+          <label>Velocità bot
+            <select id="speed"><option value="2">2× · fluida</option><option value="4" selected>4× · normale</option><option value="8">8× · rapida</option></select>
+          </label>
+          <label>Esportazione
+            <select id="quality" disabled><option>1080 × 1920 · 30 fps</option></select>
+          </label>
+        </div>
+        <button class="btn primary" id="record" disabled>● Genera video</button>
+        <div class="controls">
+          <button class="btn secondary" id="restart">↺ Riavvia il bot</button>
+          <button class="btn secondary" id="stop" disabled>■ Ferma</button>
+        </div>
+        <div class="hint"><strong>Al primo avvio:</strong> Chrome o Edge ti chiederà cosa condividere. Scegli <strong>Questa scheda</strong> e premi <strong>Condividi</strong>. Il video ritaglia soltanto il gameplay; la condivisione termina automaticamente.</div>
+        <div class="status" id="status" role="status" aria-live="polite">Caricamento del gioco…</div>
+        <div class="result" id="result">
+          <h2>✓ Video pronto per il download</h2>
+          <video id="resultVideo" controls playsinline preload="metadata"></video>
+          <div class="result-actions">
+            <a id="download" class="btn" download>↓ Scarica video</a>
+            <span id="fileInfo"></span>
+          </div>
+        </div>
+        <div class="alternate">
+          Vuoi un MP4 generato su un server, anche senza registrare la scheda? È ancora disponibile la <strong>modalità cloud gratuita</strong> con GitHub Actions, separata da questo studio web.
+          <a href="https://github.com/jessicacarter9955/block-rush/actions/workflows/free-reels.yml">Apri la modalità cloud opzionale ↗</a>
+        </div>
+      </section>
+    </div>
   </main>
+  <script type="module" src="./recorder.mjs"></script>
 </body>
 </html>
