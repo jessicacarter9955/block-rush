@@ -25,7 +25,7 @@ function init() {
   const game = $('game'), preview = $('preview'), record = $('record'), stop = $('stop'), restart = $('restart');
   const platform = $('platform'), seconds = $('seconds'), speed = $('speed');
   const status = $('status'), result = $('result'), resultVideo = $('resultVideo'), download = $('download');
-  let ready = false, capturing = false, session = null, resultUrl = null;
+  let ready = false, capturing = false, session = null, resultUrl = null, gameOverSince = 0;
 
   const say = (message, state = 'idle') => { status.textContent = message; status.dataset.state = state; };
   const ui = () => {
@@ -36,18 +36,32 @@ function init() {
     platform.disabled = capturing;
     seconds.disabled = capturing;
   };
-  const resetGame = () => {
-    if (capturing) return;
-    ready = false; ui(); say('Riavvio del bot…');
+  const reloadGame = () => {
+    gameOverSince = 0;
+    ready = false; ui();
+    if (!capturing) say('Riavvio del bot…');
     const params = new URLSearchParams({ bot: '1', speed: speed.value, clean: '1', restart: '1' });
+    params.set('run', String(Date.now()));
     game.src = `../play/?${params}`;
   };
+  const resetGame = () => { if (!capturing) reloadGame(); };
   const gameLoaded = () => { ready = true; ui(); say('Bot pronto. Premi «Genera video» per registrare.'); };
   game.addEventListener('load', gameLoaded);
   game.addEventListener('error', () => { ready = false; ui(); say('Impossibile caricare il gioco. Ricarica la pagina.', 'error'); });
   if (game.contentDocument?.readyState === 'complete') gameLoaded();
   restart.addEventListener('click', resetGame);
   speed.addEventListener('change', resetGame);
+  // A game-over overlay can persist when the embedded bot exits unexpectedly.
+  // Recover automatically even during a long recording, without needing the
+  // hidden in-game controls or a click inside the iframe.
+  const watchdog = setInterval(() => {
+    try {
+      const api = game.contentWindow?.__BB__;
+      if (!api?.isGameOver?.()) { gameOverSince = 0; return; }
+      if (!gameOverSince) gameOverSince = Date.now();
+      if (Date.now() - gameOverSince > 3000) reloadGame();
+    } catch { gameOverSince = 0; }
+  }, 1000);
 
   const disposeResult = () => {
     if (resultUrl) URL.revokeObjectURL(resultUrl);
@@ -71,6 +85,7 @@ function init() {
   };
   stop.addEventListener('click', finish);
   window.addEventListener('pagehide', () => {
+    clearInterval(watchdog);
     if (session) cleanup(session);
     if (resultUrl) URL.revokeObjectURL(resultUrl);
   });
