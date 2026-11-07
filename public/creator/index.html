@@ -65,7 +65,17 @@
         <h2 class="settings-title">Impostazioni del video</h2>
         <div class="fields">
           <label>Destinazione
-            <select id="platform"><option value="instagram-reels">Instagram Reels</option><option value="youtube-shorts">YouTube Shorts</option><option value="tiktok">TikTok</option></select>
+            <select id="platform">
+              <option value="instagram-reels">Instagram Reels</option>
+              <option value="youtube-shorts">YouTube Shorts</option>
+              <option value="tiktok">TikTok</option>
+              <option value="snapchat">Snapchat Spotlight</option>
+              <option value="douyin">Douyin</option>
+              <option value="instagram-feed">Instagram / Facebook Feed</option>
+              <option value="square">Square Feed</option>
+              <option value="youtube-landscape">YouTube Landscape</option>
+              <option value="bilibili">Bilibili</option>
+            </select>
           </label>
           <label>Durata
             <select id="seconds"><option value="6">6 secondi (prova)</option><option value="15">15 secondi</option><option value="30" selected>30 secondi</option><option value="45">45 secondi</option><option value="60">60 secondi</option></select>
@@ -75,14 +85,25 @@
           </label>
           <label>Esportazione
             <select id="quality">
-              <option value="gameplay-portrait-fhd">Portrait Full HD · 1080 × 1920</option>
-              <option value="gameplay-portrait-4k">Portrait 4K · 2160 × 3840</option>
-              <option value="gameplay-landscape-fhd">Landscape Full HD · 1920 × 1080</option>
-              <option value="gameplay-landscape-4k">Landscape 4K · 3840 × 2160</option>
-              <option value="gameplay-ultrawide">Ultrawide · 3440 × 1440</option>
-              <option value="gameplay-square">Square · 2048 × 2048</option>
-              <option value="youtube-landscape">YouTube Landscape · 1920 × 1080</option>
-              <option value="bilibili">Bilibili · 1920 × 1080</option>
+              <optgroup label="9 formati social">
+                <option value="instagram-reels">Instagram Reels · 1080 × 1920</option>
+                <option value="youtube-shorts">YouTube Shorts · 1080 × 1920</option>
+                <option value="tiktok">TikTok · 1080 × 1920</option>
+                <option value="snapchat">Snapchat Spotlight · 1080 × 1920</option>
+                <option value="douyin">Douyin · 1080 × 1920</option>
+                <option value="instagram-feed">Instagram / Facebook Feed · 1080 × 1350</option>
+                <option value="square">Square Feed · 1080 × 1080</option>
+                <option value="youtube-landscape">YouTube Landscape · 1920 × 1080</option>
+                <option value="bilibili">Bilibili · 1920 × 1080</option>
+              </optgroup>
+              <optgroup label="6 risoluzioni gameplay">
+                <option value="gameplay-portrait-fhd">Portrait Full HD · 1080 × 1920</option>
+                <option value="gameplay-portrait-4k">Portrait 4K · 2160 × 3840</option>
+                <option value="gameplay-landscape-fhd">Landscape Full HD · 1920 × 1080</option>
+                <option value="gameplay-landscape-4k">Landscape 4K · 3840 × 2160</option>
+                <option value="gameplay-ultrawide">Ultrawide · 3440 × 1440</option>
+                <option value="gameplay-square">Square · 2048 × 2048</option>
+              </optgroup>
             </select>
           </label>
         </div>
