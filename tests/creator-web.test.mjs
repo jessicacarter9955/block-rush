@@ -22,6 +22,7 @@ test('the studio has a watchdog to restart a stalled embedded game', async () =>
   assert.match(script, /api\?\.isGameOver\?\.\(\)/);
   assert.match(script, /Date\.now\(\) - gameOverSince > 3000/);
   assert.match(script, /if \(Date\.now\(\) - gameOverSince > 3000\) reloadGame\(\)/);
+  assert.match(script, /if \(resolutionForQuality\(quality\.value\)\.layout === 'landscape'\) reloadGame\(\)/);
 });
 
 test('video cropping maps a fully visible portrait preview to its tab-capture pixels', () => {
