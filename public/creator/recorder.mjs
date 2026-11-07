@@ -16,14 +16,21 @@ export function recordingMime(isSupported) {
 }
 
 const RESOLUTIONS = Object.freeze({
+  'instagram-reels':{width:1080,height:1920,layout:'portrait'},
+  'youtube-shorts':{width:1080,height:1920,layout:'portrait'},
+  tiktok:{width:1080,height:1920,layout:'portrait'},
+  snapchat:{width:1080,height:1920,layout:'portrait'},
+  douyin:{width:1080,height:1920,layout:'portrait'},
+  'instagram-feed':{width:1080,height:1350,layout:'portrait'},
+  square:{width:1080,height:1080,layout:'square'},
+  'youtube-landscape':{width:1920,height:1080,layout:'landscape'},
+  bilibili:{width:1920,height:1080,layout:'landscape'},
   'gameplay-portrait-fhd':{width:1080,height:1920,layout:'portrait'},
   'gameplay-portrait-4k':{width:2160,height:3840,layout:'portrait'},
   'gameplay-landscape-fhd':{width:1920,height:1080,layout:'landscape'},
   'gameplay-landscape-4k':{width:3840,height:2160,layout:'landscape'},
   'gameplay-ultrawide':{width:3440,height:1440,layout:'landscape'},
   'gameplay-square':{width:2048,height:2048,layout:'square'},
-  'youtube-landscape':{width:1920,height:1080,layout:'landscape'},
-  bilibili:{width:1920,height:1080,layout:'landscape'},
 });
 
 export function resolutionForQuality(id) {
@@ -31,8 +38,8 @@ export function resolutionForQuality(id) {
 }
 
 export function reelFilename(platform, mime, now = new Date(), quality = 'gameplay-portrait-fhd') {
-  if (!['instagram-reels', 'youtube-shorts', 'tiktok'].includes(platform)) throw new Error('Destinazione non valida');
-  const suffix = quality === 'gameplay-portrait-fhd' ? '' : `-${quality.replace(/[^a-z0-9-]/g, '')}`;
+  if (!['instagram-reels', 'youtube-shorts', 'tiktok', 'snapchat', 'douyin', 'instagram-feed', 'square', 'youtube-landscape', 'bilibili'].includes(platform)) throw new Error('Destinazione non valida');
+  const suffix = quality === 'gameplay-portrait-fhd' || quality === platform ? '' : `-${quality.replace(/[^a-z0-9-]/g, '')}`;
   return `blockrush-${platform}${suffix}-${now.toISOString().replace(/[:.]/g, '-')}.${mime.includes('mp4') ? 'mp4' : 'webm'}`;
 }
 
@@ -54,7 +61,7 @@ function init() {
     seconds.disabled = capturing;
   };
   const requestedQuality = new URLSearchParams(location.search).get('quality');
-  if (requestedQuality && Object.hasOwn(RESOLUTIONS, requestedQuality)) quality.value = requestedQuality;
+  quality.value = requestedQuality && Object.hasOwn(RESOLUTIONS, requestedQuality) ? requestedQuality : platform.value;
   const applyQuality = () => {
     const selected = resolutionForQuality(quality.value);
     preview.dataset.layout = selected.layout;
@@ -77,6 +84,7 @@ function init() {
   if (game.contentDocument?.readyState === 'complete') gameLoaded();
   restart.addEventListener('click', resetGame);
   speed.addEventListener('change', resetGame);
+  platform.addEventListener('change', () => { if (!capturing) { quality.value=platform.value; applyQuality(); reloadGame(); } });
   quality.addEventListener('change', () => { if (!capturing) { applyQuality(); reloadGame(); } });
   applyQuality();
   // A game-over overlay can persist when the embedded bot exits unexpectedly.
