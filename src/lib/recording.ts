@@ -14,11 +14,15 @@ export interface RecorderOptions {
   element: HTMLElement; audio: boolean; onTime: (s:number) => void;
   onComplete: (blob:Blob,duration:number) => void;
   onError: (message:string) => void;
+  /** Optional output geometry; existing callers remain portrait 1080×1920. */
+  output?: { width:number; height:number };
   segmentSeconds?: number; maxSegments?: number;
   onChunk?: (chunk:Blob) => void;
   onStopped?: () => void;
 }
-export async function createGameRecorder({element,audio,onTime,onComplete,onError,segmentSeconds,maxSegments=1,onChunk,onStopped}:RecorderOptions):Promise<()=>void> {
+export async function createGameRecorder({element,audio,onTime,onComplete,onError,output={width:1080,height:1920},segmentSeconds,maxSegments=1,onChunk,onStopped}:RecorderOptions):Promise<()=>void> {
+  if(!Number.isInteger(output.width)||!Number.isInteger(output.height)||output.width<240||output.height<240||output.width>4096||output.height>4096||output.width%2!==0||output.height%2!==0)
+    throw new Error('Output video dimensions must be even and between 240 and 4096 pixels.');
   if(segmentSeconds!==undefined && (!Number.isFinite(segmentSeconds)||segmentSeconds<6||segmentSeconds>60)) throw new Error('Clip duration must be 6–60 seconds.');
   if(!Number.isInteger(maxSegments)||maxSegments<1||maxSegments>50) throw new Error('Choose 1–50 clips per batch.');
   if(!navigator.mediaDevices?.getDisplayMedia || typeof MediaRecorder==='undefined') throw new Error('Usa Chrome o Edge su desktop per registrare.');
@@ -34,9 +38,9 @@ export async function createGameRecorder({element,audio,onTime,onComplete,onErro
     if(surface && surface!=='browser') throw new Error('Scegli la scheda di Block Rush, non lo schermo o una finestra: il ritaglio richiede la scheda.');
     video=document.createElement('video');video.srcObject=new MediaStream([track]);video.muted=true;video.playsInline=true;
     await Promise.race([video.play(),new Promise<never>((_,reject)=>{timeout=window.setTimeout(()=>reject(new Error('La condivisione non ha avviato il video. Riprova.')),10000);})]);clearTimeout(timeout);
-    const canvas=document.createElement('canvas');canvas.width=1080;canvas.height=1920;
+    const canvas=document.createElement('canvas');canvas.width=output.width;canvas.height=output.height;
     const ctx=canvas.getContext('2d');if(!ctx) throw new Error('Canvas non disponibile.');
-    const draw=()=>{const r=captureRect(element.getBoundingClientRect(),{width:innerWidth,height:innerHeight},{width:video!.videoWidth,height:video!.videoHeight});ctx.drawImage(video!,r.x,r.y,r.width,r.height,0,0,1080,1920);};
+    const draw=()=>{const r=captureRect(element.getBoundingClientRect(),{width:innerWidth,height:innerHeight},{width:video!.videoWidth,height:video!.videoHeight});ctx.drawImage(video!,r.x,r.y,r.width,r.height,0,0,output.width,output.height);};
     draw();mixed=canvas.captureStream(30);for(const t of display.getAudioTracks()) mixed.addTrack(t);
     const candidates=onChunk?['video/webm;codecs=vp8,opus','video/webm']:['video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
     const mime=candidates.find(m=>MediaRecorder.isTypeSupported(m));

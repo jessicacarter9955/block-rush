@@ -67,6 +67,10 @@ export default function PlayPage() {
   const [versionId, setVersionId] = useState<string>('rush');
   const [scale, setScale] = useState(0.3);
   const [tall, setTall] = useState(true);
+  const [landscapeRequested, setLandscapeRequested] = useState(false);
+  const [stageWidth, setStageWidth] = useState(1080);
+  const landscapeGame = playing && landscapeRequested;
+  const stageHeight = landscapeGame ? 1080 : 1920;
 
   // bot ui state
   const botRef = useRef<BlockBlastBot | null>(null);
@@ -105,6 +109,9 @@ export default function PlayPage() {
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     if (q.get('clean') === '1') setClean(true);
+    // Explicit opt-in until native wide gameplay has cross-device visual QA.
+    // Default portrait stays pixel-for-pixel identical, including the recorder.
+    if (q.get('layout') === 'landscape') setLandscapeRequested(true);
     if (q.get('restart') === '1') setAutoRestart(true);
     // build "solo gioco": un'unica versione, Block Rush 1:1
     const v = 'rush';
@@ -131,19 +138,23 @@ export default function PlayPage() {
     return () => { disposed = true; setHintAdProvider(undefined); };
   }, []);
 
-  // fit the 1080×1920 design to the viewport
+  // Portrait reference stays 1080×1920. Optional widescreen gameplay uses
+  // a native 1080-high stage that can grow to ultrawide instead of cropping.
   useEffect(() => {
     const update = () => {
       const w = window.innerWidth, h = window.innerHeight;
       const room = w >= 860 && !clean && !panelHidden;
+      const usableW = w - (room ? 288 : 0);
+      const designW = landscapeGame ? Math.max(1920, Math.min(2560, Math.round(usableW * 1080 / h / 2) * 2)) : 1080;
       setWide(room);
-      setScale(Math.min((w-(room?288:0)) / 1080, h / 1920));
-      setTall(h / w > 1.45);
+      setStageWidth(designW);
+      setScale(Math.min(usableW / designW, h / stageHeight));
+      setTall(!landscapeGame && h / w > 1.45);
     };
     update();
     window.addEventListener('resize', update);
     return () => window.removeEventListener('resize', update);
-  }, [clean,panelHidden]);
+  }, [clean,panelHidden,landscapeGame,stageHeight]);
 
   // ------------------------------------------------------------ bot init --
   useEffect(() => {
@@ -243,6 +254,7 @@ export default function PlayPage() {
     try {
       const element=areaRef.current;if(!element)throw new Error('Area di gioco non trovata.');
       const stop=await createGameRecorder({element,audio:recAudio,
+        output:{width:landscapeGame?stageWidth:1080,height:landscapeGame?stageHeight:1920},
         onTime:s=>{if(recMountedRef.current)setRecTime(s);},
         onError:message=>{recStopRef.current=null;if(recMountedRef.current){setRecErr(message);setRecOn(false);}},
         onComplete:(blob,dur)=>{
@@ -254,10 +266,10 @@ export default function PlayPage() {
           pushLog(`video pronto: ${name} (${(blob.size/1048576).toFixed(1)} MB)`);
         }});
       if(!recMountedRef.current){stop();return;}
-      recStopRef.current=stop;setRecOn(true);pushLog('registrazione avviata · 1080×1920 · 30fps');
+      recStopRef.current=stop;setRecOn(true);pushLog(`registrazione avviata · ${landscapeGame?stageWidth:1080}×${landscapeGame?stageHeight:1920} · 30fps`);
     }catch(err){if(recMountedRef.current){setRecErr(err instanceof Error?err.message:String(err));setRecOn(false);}}
     finally {recBusyRef.current=false;if(recMountedRef.current)setRecStarting(false);}
-  },[recAudio,pushLog,publisherBusy]);
+  },[recAudio,pushLog,publisherBusy,landscapeGame,stageWidth,stageHeight]);
 
   const stopRec = useCallback(() => { recStopRef.current?.(); }, []);
 
@@ -291,11 +303,11 @@ export default function PlayPage() {
   // ---------------------------------------------------------------- view --
   return (
     <div className="fixed inset-0 flex items-center justify-center overflow-hidden bg-[#0a1755]">
-      {/* design space 1080×1920 */}
+      {/* portrait reference or explicit native landscape game stage */}
       <div
         ref={wrapRef}
         style={{
-          width: 1080 * scale, height: 1920 * scale, marginRight:wide?288:0,
+          width: stageWidth * scale, height: stageHeight * scale, marginRight:wide?288:0,
           borderRadius: tall ? 0 : Math.min(36, 36 * scale * 2),
           overflow: 'hidden', position: 'relative',
           boxShadow: tall ? undefined : '0 30px 90px rgba(0,0,0,0.7)',
@@ -304,15 +316,16 @@ export default function PlayPage() {
         <div
           ref={areaRef}
           data-bb-design="1"
+          data-bb-layout={landscapeGame ? 'landscape' : 'portrait'}
           style={{
-            width: 1080, height: 1920,
+            width: stageWidth, height: stageHeight,
             transform: `scale(${scale})`, transformOrigin: 'top left',
             position: 'absolute', top: 0, left: 0, background: '#101528',
             overflow: 'hidden',
           }}
         >
           {playing ? (
-            <PlayGame areaRef={areaRef} />
+            <PlayGame areaRef={areaRef} landscape={landscapeGame} stageWidth={stageWidth} />
           ) : (
             <HomeScreen
               onPlay={startGame}

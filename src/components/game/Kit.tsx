@@ -48,7 +48,7 @@ function seeded(n: number): () => number {
   };
 }
 
-export function BackgroundView({ skin, variant = 'game' }: { skin: SkinState; variant?: 'home' | 'game' }) {
+export function BackgroundView({ skin, variant = 'game', landscape = false }: { skin: SkinState; variant?: 'home' | 'game'; landscape?: boolean }) {
   const bg = skin.background;
   const bgImg = variant === 'home' && bg.imgHome ? bg.imgHome : bg.img;
   const layer: CSSProperties =
@@ -58,10 +58,10 @@ export function BackgroundView({ skin, variant = 'game' }: { skin: SkinState; va
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
           backgroundSize:
-            bg.imgFit === 'cover' ? 'cover' : bg.imgFit === 'contain' ? 'contain' : '100% 100%',
+            landscape ? (bg.imgFit === 'contain' ? 'contain' : 'cover') : bg.imgFit === 'cover' ? 'cover' : bg.imgFit === 'contain' ? 'contain' : '100% 100%',
         }
       : bg.style === 'original'
-      ? { backgroundImage: `url(${BP}/sprites/Bg-f00.png)`, backgroundSize: '100% 100%' }
+      ? { backgroundImage: `url(${BP}/sprites/Bg-f00.png)`, backgroundSize: landscape ? 'cover' : '100% 100%', backgroundPosition: 'center' }
       : bg.style === 'solid'
         ? { background: bg.c1 }
         : bg.style === 'radial'
