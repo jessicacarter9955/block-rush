@@ -87,6 +87,9 @@ function init() {
   platform.addEventListener('change', () => { if (!capturing) { quality.value=platform.value; applyQuality(); reloadGame(); } });
   quality.addEventListener('change', () => { if (!capturing) { applyQuality(); reloadGame(); } });
   applyQuality();
+  // Deep-links to a widescreen preset must reload the initial portrait iframe
+  // immediately; selecting a preset from the control does this as well.
+  if (resolutionForQuality(quality.value).layout === 'landscape') reloadGame();
   // A game-over overlay can persist when the embedded bot exits unexpectedly.
   // Recover automatically even during a long recording, without needing the
   // hidden in-game controls or a click inside the iframe.
