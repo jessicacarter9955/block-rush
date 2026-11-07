@@ -5,11 +5,17 @@ on:
   schedule:
     - cron: '*/15 * * * *'
   workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/scheduled-reels.yml'
+      - 'scripts/reels-schedule.mjs'
+      - 'tests/reels-schedule.test.mjs'
   push:
     branches: [codex/blockrush-free-queue]
     paths:
       - '.github/workflows/scheduled-reels.yml'
       - 'scripts/reels-schedule.mjs'
+      - 'tests/reels-schedule.test.mjs'
 
 permissions:
   contents: read
@@ -21,7 +27,18 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate scheduler logic and mock API contract
+        run: node --test tests/reels-schedule.test.mjs
+
   generate:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 55
     steps:
