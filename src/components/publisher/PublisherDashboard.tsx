@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Activity, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpRight, Bot, Check, CheckCircle2, ChevronRight, Clock3, ExternalLink, Film, Gem, HardDrive, LayoutDashboard, ListVideo, LoaderCircle, Pause, Play, Radio, RefreshCw, Search, Send, ShieldAlert, SlidersHorizontal, Video, WifiOff, X, Youtube } from 'lucide-react';
+import { Activity, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpRight, Bot, Check, CheckCircle2, ChevronRight, Clock3, ExternalLink, Film, Gem, HardDrive, LayoutDashboard, ListVideo, LoaderCircle, MonitorPlay, Pause, Play, Radio, RefreshCw, Search, Send, ShieldAlert, SlidersHorizontal, Video, WifiOff, X, Youtube } from 'lucide-react';
 import { BP } from '@/lib/bp';
 import styles from './dashboard.module.css';
 import { SocialPreview, type SocialExport } from './SocialPreview';
@@ -107,6 +107,7 @@ export function PublisherDashboard(){
       <div className={styles.navLabel}>WORKSPACE</div>
       <a className={styles.navActive} href="#overview"><LayoutDashboard size={18}/>Overview</a>
       <a href="#queue"><ListVideo size={18}/>Publishing queue<span>{total}</span></a>
+      <a href={`${BP}/publisher/formats/`}><MonitorPlay size={18}/>Resolution studio</a>
       <a href="#connections"><Send size={18}/>Connections</a>
       <a href={`${BP}/play/?bot=1&speed=4&publisher=1`} target="_blank" rel="noopener"><Bot size={18}/>Bot & recorder<ArrowUpRight size={14}/></a>
       <div className={styles.sidebarBottom}><span className={styles.localDot}/><div>Local workspace<small>Private worker · this computer</small></div></div>

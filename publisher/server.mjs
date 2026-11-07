@@ -10,7 +10,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { WebSocketServer } from 'ws';
 import { PublisherQueue } from './core.mjs';
 import { ParallelRecorder } from './parallel.mjs';
-import { exportLayout } from './formats.mjs';
+import { exportLayout, displayFormats } from './formats.mjs';
 
 export function trustedRequest(request, origin) {
   return request.headers.host === new URL(origin).host &&
@@ -64,6 +64,17 @@ export async function createPublisher({ directory, config = {}, key, root, port 
       }
       if (url.pathname.startsWith('/api/publisher/')) {
         if (req.headers.authorization !== `Bearer ${token}`) return json(res, 401, { error: 'Refresh the publisher session.' });
+        const displayPackMatch = /^\/api\/publisher\/exports\/([a-f0-9-]{36})\/display-pack$/.exec(url.pathname);
+        if (req.method === 'POST' && displayPackMatch) {
+          if (!ffmpegReady) return json(res, 503, { error: 'FFmpeg is required for the six-resolution video pack' });
+          try {
+            const outputs = [];
+            for (const format of displayFormats) {
+              outputs.push(await queue.requestExport(displayPackMatch[1], format.id, 'fit'));
+            }
+            return json(res, 202, { outputs });
+          } catch (error) { return json(res, 409, { error: error.message }); }
+        }
         const exportMatch = /^\/api\/publisher\/exports\/([a-f0-9-]{36})$/.exec(url.pathname);
         if (req.method === 'POST' && exportMatch) {
           if (!ffmpegReady) return json(res, 503, { error: 'FFmpeg is required for social exports' });

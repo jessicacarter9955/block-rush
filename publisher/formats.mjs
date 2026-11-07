@@ -1,6 +1,7 @@
 import formats from '../src/lib/social-formats.json' with { type: 'json' };
 
 export { formats };
+export const displayFormats = formats.filter(format => format.group === 'display');
 export function socialFormat(id, framing = 'safe') {
   const format = formats.find(format => format.id === id);
   if (!format) throw new Error('Choose a supported social format');
