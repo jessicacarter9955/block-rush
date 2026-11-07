@@ -15,15 +15,31 @@ export function recordingMime(isSupported) {
     .find(type => isSupported(type));
 }
 
-export function reelFilename(platform, mime, now = new Date()) {
+const RESOLUTIONS = Object.freeze({
+  'gameplay-portrait-fhd':{width:1080,height:1920,layout:'portrait'},
+  'gameplay-portrait-4k':{width:2160,height:3840,layout:'portrait'},
+  'gameplay-landscape-fhd':{width:1920,height:1080,layout:'landscape'},
+  'gameplay-landscape-4k':{width:3840,height:2160,layout:'landscape'},
+  'gameplay-ultrawide':{width:3440,height:1440,layout:'landscape'},
+  'gameplay-square':{width:2048,height:2048,layout:'square'},
+  'youtube-landscape':{width:1920,height:1080,layout:'landscape'},
+  bilibili:{width:1920,height:1080,layout:'landscape'},
+});
+
+export function resolutionForQuality(id) {
+  return Object.hasOwn(RESOLUTIONS, id) ? RESOLUTIONS[id] : RESOLUTIONS['gameplay-portrait-fhd'];
+}
+
+export function reelFilename(platform, mime, now = new Date(), quality = 'gameplay-portrait-fhd') {
   if (!['instagram-reels', 'youtube-shorts', 'tiktok'].includes(platform)) throw new Error('Destinazione non valida');
-  return `blockrush-${platform}-${now.toISOString().replace(/[:.]/g, '-')}.${mime.includes('mp4') ? 'mp4' : 'webm'}`;
+  const suffix = quality === 'gameplay-portrait-fhd' ? '' : `-${quality.replace(/[^a-z0-9-]/g, '')}`;
+  return `blockrush-${platform}${suffix}-${now.toISOString().replace(/[:.]/g, '-')}.${mime.includes('mp4') ? 'mp4' : 'webm'}`;
 }
 
 function init() {
   const $ = id => document.getElementById(id);
   const game = $('game'), preview = $('preview'), record = $('record'), stop = $('stop'), restart = $('restart');
-  const platform = $('platform'), seconds = $('seconds'), speed = $('speed');
+  const platform = $('platform'), seconds = $('seconds'), speed = $('speed'), quality = $('quality');
   const status = $('status'), result = $('result'), resultVideo = $('resultVideo'), download = $('download');
   let ready = false, capturing = false, session = null, resultUrl = null, gameOverSince = 0;
 
@@ -34,13 +50,23 @@ function init() {
     restart.disabled = capturing;
     speed.disabled = capturing;
     platform.disabled = capturing;
+    quality.disabled = capturing;
     seconds.disabled = capturing;
+  };
+  const requestedQuality = new URLSearchParams(location.search).get('quality');
+  if (requestedQuality && Object.hasOwn(RESOLUTIONS, requestedQuality)) quality.value = requestedQuality;
+  const applyQuality = () => {
+    const selected = resolutionForQuality(quality.value);
+    preview.dataset.layout = selected.layout;
+    preview.style.aspectRatio = `${selected.width}/${selected.height}`;
+    $('aspectLabel').textContent = `${selected.width}×${selected.height} · ${selected.layout === 'landscape' ? 'gameplay wide' : 'gameplay completo'}`;
   };
   const reloadGame = () => {
     gameOverSince = 0;
     ready = false; ui();
     if (!capturing) say('Riavvio del bot…');
     const params = new URLSearchParams({ bot: '1', speed: speed.value, clean: '1', restart: '1' });
+    if (resolutionForQuality(quality.value).layout === 'landscape') params.set('layout', 'landscape');
     params.set('run', String(Date.now()));
     game.src = `../play/?${params}`;
   };
@@ -51,6 +77,8 @@ function init() {
   if (game.contentDocument?.readyState === 'complete') gameLoaded();
   restart.addEventListener('click', resetGame);
   speed.addEventListener('change', resetGame);
+  quality.addEventListener('change', () => { if (!capturing) { applyQuality(); reloadGame(); } });
+  applyQuality();
   // A game-over overlay can persist when the embedded bot exits unexpectedly.
   // Recover automatically even during a long recording, without needing the
   // hidden in-game controls or a click inside the iframe.
@@ -126,14 +154,15 @@ function init() {
         await Promise.race([source.play(), new Promise((_, reject) => { startTimer = setTimeout(() => reject(new Error('La scheda non ha avviato la condivisione.')), 10000); })]);
       } finally { clearTimeout(startTimer); }
       if (!source.videoWidth || !source.videoHeight) throw new Error('Il video della scheda non è ancora disponibile. Riprova.');
-      const canvas = document.createElement('canvas'); canvas.width = 1080; canvas.height = 1920;
+      const dimensions = resolutionForQuality(quality.value);
+      const canvas = document.createElement('canvas'); canvas.width = dimensions.width; canvas.height = dimensions.height;
       const ctx = canvas.getContext('2d', { alpha: false });
       if (!ctx) throw new Error('Registrazione Canvas non disponibile.');
       const draw = () => {
         if (session !== current) return;
         try {
           const rect = cropCoordinates(preview.getBoundingClientRect(), { width: innerWidth, height: innerHeight }, { width: source.videoWidth, height: source.videoHeight });
-          ctx.drawImage(source, rect.x, rect.y, rect.width, rect.height, 0, 0, 1080, 1920);
+          ctx.drawImage(source, rect.x, rect.y, rect.width, rect.height, 0, 0, dimensions.width, dimensions.height);
           current.raf = requestAnimationFrame(draw);
         } catch (error) { current.failed = true; say(error.message, 'error'); finish(); }
       };
@@ -141,7 +170,7 @@ function init() {
       const canvasStream = canvas.captureStream(30); current.canvasStream = canvasStream;
       const mime = recordingMime(type => MediaRecorder.isTypeSupported(type));
       if (!mime) throw new Error('Il browser non supporta la registrazione video.');
-      const media = new MediaRecorder(canvasStream, { mimeType: mime, videoBitsPerSecond: 10_000_000 });
+      const media = new MediaRecorder(canvasStream, { mimeType: mime, videoBitsPerSecond: dimensions.width * dimensions.height >= 3840 * 2160 ? 20_000_000 : 10_000_000 });
       current.recorder = media;
       const chunks = [], started = performance.now(), duration = Number(seconds.value);
       media.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
@@ -151,10 +180,10 @@ function init() {
         if (current.failed) return;
         if (!chunks.length) { say('Il video registrato è vuoto. Riprova.', 'error'); return; }
         const blob = new Blob(chunks, { type: media.mimeType });
-        const filename = reelFilename(platform.value, media.mimeType);
+        const filename = reelFilename(platform.value, media.mimeType, new Date(), quality.value);
         resultUrl = URL.createObjectURL(blob);
         resultVideo.src = resultUrl; download.href = resultUrl; download.download = filename;
-        $('fileInfo').textContent = `${Math.round(blob.size / 1024)} KB · ${filename.endsWith('.mp4') ? 'MP4' : 'WebM'}`;
+        $('fileInfo').textContent = `${dimensions.width}×${dimensions.height} · ${Math.round(blob.size / 1024)} KB · ${filename.endsWith('.mp4') ? 'MP4' : 'WebM'}`;
         result.classList.add('visible');
         say(filename.endsWith('.mp4') ? 'Video MP4 pronto! Premi «Scarica video».' : 'Video WebM pronto. Per MP4 garantito usa la modalità cloud.', 'ready');
       };
