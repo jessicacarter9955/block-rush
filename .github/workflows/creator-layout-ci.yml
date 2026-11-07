@@ -1,0 +1,44 @@
+name: Creator Studio formats and build
+
+on:
+  push:
+    branches:
+      - codex/blockrush-creator-landscape
+    paths:
+      - .github/workflows/creator-layout-ci.yml
+      - public/creator/**
+      - tests/creator-web.test.mjs
+      - package.json
+      - package-lock.json
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/creator-layout-ci.yml
+      - public/creator/**
+      - tests/creator-web.test.mjs
+      - package.json
+      - package-lock.json
+
+permissions:
+  contents: read
+
+jobs:
+  creator:
+    name: Test 9 social + 6 gameplay formats
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Verify Creator controls and formats
+        run: node --test tests/creator-web.test.mjs
+      - name: Build static web app
+        run: npm run build

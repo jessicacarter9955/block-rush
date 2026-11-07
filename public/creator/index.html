@@ -20,6 +20,8 @@
     .preview-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:13px;font-weight:750}
     .preview-head span{font-size:12px;color:#95b8d7;font-weight:500}
     .preview-shell{width:min(100%,346px);margin:auto;aspect-ratio:9/16;background:#081126;border:2px solid #4771a0;border-radius:15px;overflow:hidden;position:relative}
+    .preview-shell[data-layout="landscape"]{width:100%;aspect-ratio:16/9}
+    .preview-shell[data-layout="square"]{width:min(100%,420px);aspect-ratio:1}
     #game{width:100%;height:100%;border:0;display:block;background:#081126}
     .preview-note{font-size:12px;color:#92aac9;margin:13px 0 0;text-align:center}
     .settings-title{font-weight:800;font-size:19px;margin:0 0 17px}
@@ -53,7 +55,7 @@
     <p class="intro">Il bot gioca in automatico; scegli durata e formato, registra la scheda e scarica il video. Nessun account GitHub, server a pagamento o installazione.</p>
     <div class="studio">
       <section class="panel" aria-label="Anteprima del gioco">
-        <div class="preview-head">Anteprima live <span>9:16 · gameplay automatico</span></div>
+        <div class="preview-head">Anteprima live <span id="aspectLabel">9:16 · gameplay automatico</span></div>
         <div class="preview-shell" id="preview">
           <iframe id="game" title="BlockRush gameplay automatico" src="../play/?bot=1&amp;speed=4&amp;clean=1&amp;restart=1" allow="autoplay" loading="eager"></iframe>
         </div>
@@ -63,7 +65,17 @@
         <h2 class="settings-title">Impostazioni del video</h2>
         <div class="fields">
           <label>Destinazione
-            <select id="platform"><option value="instagram-reels">Instagram Reels</option><option value="youtube-shorts">YouTube Shorts</option><option value="tiktok">TikTok</option></select>
+            <select id="platform">
+              <option value="instagram-reels">Instagram Reels</option>
+              <option value="youtube-shorts">YouTube Shorts</option>
+              <option value="tiktok">TikTok</option>
+              <option value="snapchat">Snapchat Spotlight</option>
+              <option value="douyin">Douyin</option>
+              <option value="instagram-feed">Instagram / Facebook Feed</option>
+              <option value="square">Square Feed</option>
+              <option value="youtube-landscape">YouTube Landscape</option>
+              <option value="bilibili">Bilibili</option>
+            </select>
           </label>
           <label>Durata
             <select id="seconds"><option value="6">6 secondi (prova)</option><option value="15">15 secondi</option><option value="30" selected>30 secondi</option><option value="45">45 secondi</option><option value="60">60 secondi</option></select>
@@ -72,7 +84,27 @@
             <select id="speed"><option value="2">2× · fluida</option><option value="4" selected>4× · normale</option><option value="8">8× · rapida</option></select>
           </label>
           <label>Esportazione
-            <select id="quality" disabled><option>1080 × 1920 · 30 fps</option></select>
+            <select id="quality">
+              <optgroup label="9 formati social">
+                <option value="instagram-reels">Instagram Reels · 1080 × 1920</option>
+                <option value="youtube-shorts">YouTube Shorts · 1080 × 1920</option>
+                <option value="tiktok">TikTok · 1080 × 1920</option>
+                <option value="snapchat">Snapchat Spotlight · 1080 × 1920</option>
+                <option value="douyin">Douyin · 1080 × 1920</option>
+                <option value="instagram-feed">Instagram / Facebook Feed · 1080 × 1350</option>
+                <option value="square">Square Feed · 1080 × 1080</option>
+                <option value="youtube-landscape">YouTube Landscape · 1920 × 1080</option>
+                <option value="bilibili">Bilibili · 1920 × 1080</option>
+              </optgroup>
+              <optgroup label="6 risoluzioni gameplay">
+                <option value="gameplay-portrait-fhd">Portrait Full HD · 1080 × 1920</option>
+                <option value="gameplay-portrait-4k">Portrait 4K · 2160 × 3840</option>
+                <option value="gameplay-landscape-fhd">Landscape Full HD · 1920 × 1080</option>
+                <option value="gameplay-landscape-4k">Landscape 4K · 3840 × 2160</option>
+                <option value="gameplay-ultrawide">Ultrawide · 3440 × 1440</option>
+                <option value="gameplay-square">Square · 2048 × 2048</option>
+              </optgroup>
+            </select>
           </label>
         </div>
         <button class="btn primary" id="record" disabled>● Genera video</button>
@@ -81,6 +113,7 @@
           <button class="btn secondary" id="stop" disabled>■ Ferma</button>
         </div>
         <div class="hint"><strong>Al primo avvio:</strong> Chrome o Edge ti chiederà cosa condividere. Scegli <strong>Questa scheda</strong> e premi <strong>Condividi</strong>. Il video ritaglia soltanto il gameplay; la condivisione termina automaticamente.</div>
+        <p class="preview-note">Le risoluzioni 4K esportano un canvas 4K: la qualità reale dipende dall'anteprima del browser e dalle immagini originali. I formati landscape richiedono la build del gioco con <code>?layout=landscape</code>.</p>
         <div class="status" id="status" role="status" aria-live="polite">Caricamento del gioco…</div>
         <div class="result" id="result">
           <h2>✓ Video pronto per il download</h2>
