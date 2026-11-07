@@ -1,0 +1,104 @@
+name: Free Scheduled Reels Queue
+
+# Cron is best-effort and may start late; workflow_dispatch gives a manual "run now".
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [codex/blockrush-free-queue]
+    paths:
+      - '.github/workflows/scheduled-reels.yml'
+      - 'scripts/reels-schedule.mjs'
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+concurrency:
+  group: blockrush-scheduled-reels
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - name: Get the scheduler (default branch)
+        uses: actions/checkout@v4
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Find one due job (no render cost if queue empty)
+        id: pick
+        run: node scripts/reels-schedule.mjs pick
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Exact source branch currently contains the video rendering code and
+      # 6 responsive gameplay display presets. This is a pinned named ref
+      # until the video-resolutions PR is merged.
+      - name: Get video recorder
+        if: steps.pick.outputs.has_job == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: codex/blockrush-video-resolutions
+          path: generator
+          persist-credentials: false
+
+      - name: Install application and Chromium
+        if: steps.pick.outputs.has_job == 'true'
+        working-directory: generator
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Ensure FFmpeg is available
+        if: steps.pick.outputs.has_job == 'true'
+        run: |
+          if ! command -v ffmpeg >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
+          ffmpeg -version
+
+      - name: Build the game
+        if: steps.pick.outputs.has_job == 'true'
+        working-directory: generator
+        run: npm run publisher:build
+
+      - name: Render scheduled MP4
+        id: render
+        if: steps.pick.outputs.has_job == 'true'
+        working-directory: generator
+        run: npm run reels:generate
+        env:
+          REELS_COUNT: ${{ steps.pick.outputs.count }}
+          REELS_SECONDS: ${{ steps.pick.outputs.seconds }}
+          REELS_SPEED: ${{ steps.pick.outputs.speed }}
+          REELS_FORMAT: ${{ steps.pick.outputs.format }}
+          REELS_FRAMING: ${{ steps.pick.outputs.framing }}
+
+      - name: Upload downloadable MP4s and manifest
+        id: artifact
+        if: steps.pick.outputs.has_job == 'true' && steps.render.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlockRush-Queued-${{ steps.pick.outputs.issue_number }}-${{ github.run_id }}
+          path: generator/reels/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: Record result and release the job
+        if: always() && steps.pick.outputs.has_job == 'true'
+        run: node scripts/reels-schedule.mjs finalize
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REELS_ISSUE_NUMBER: ${{ steps.pick.outputs.issue_number }}
+          REELS_RENDER_OUTCOME: ${{ steps.render.outcome }}
+          REELS_ARTIFACT_OUTCOME: ${{ steps.artifact.outcome }}
