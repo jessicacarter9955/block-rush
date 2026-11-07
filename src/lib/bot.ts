@@ -18,6 +18,7 @@ import {
   calcEarned, canPlace, findFullLines, clearCells, placedCells,
   GRID, type Board, type Piece,
 } from './game';
+import { gameViewport, gridDropPoint, type GameViewport } from './game-viewport';
 
 // ------------------------------------------------------------------ types --
 
@@ -263,10 +264,10 @@ function designRect(): DOMRect | null {
   return el ? el.getBoundingClientRect() : null;
 }
 
-function toClient(designX: number, designY: number, rect: DOMRect) {
+function toClient(designX: number, designY: number, rect: DOMRect, viewport: GameViewport) {
   return {
-    clientX: rect.left + (designX / 1080) * rect.width,
-    clientY: rect.top + (designY / 1920) * rect.height,
+    clientX: rect.left + (designX / viewport.width) * rect.width,
+    clientY: rect.top + (designY / viewport.height) * rect.height,
   };
 }
 
@@ -288,19 +289,10 @@ function fire(target: Element | Window, type: string, clientX: number, clientY: 
   target.dispatchEvent(ev);
 }
 
-const TRAY_X = [190, 540, 890];
-const TRAY_Y = 1600;
-const LIFT = 200;
 // griglia 1:1 misurata dal reference (vedi Kit.GRID)
 const GX0 = 74.5, GY0 = 385, GPX = 115.8125, GPY = 117.9375;
 
-/** Pointer position (design coords) that drops the piece at (r,c). */
-function dropPoint(p: Piece, r: number, c: number) {
-  return {
-    x: GX0 + c * GPX + (p.w * GPX) / 2,
-    y: GY0 + r * GPY + (p.h * GPY) / 2 + LIFT,
-  };
-}
+const GAME_GRID = {x:GX0,y:GY0,pitchX:GPX,pitchY:GPY,sizeX:8*GPX,sizeY:8*GPY};
 
 // ------------------------------------------------------------------- bot --
 
@@ -504,17 +496,17 @@ export class BlockBlastBot {
   private async doMove(mv: BotMove, piece: Piece): Promise<boolean> {
     const rect = designRect();
     if (!rect) return false;
+    const stage = document.querySelector<HTMLElement>('[data-bb-design]');
+    const viewport = gameViewport(stage?.offsetWidth || 1080, stage?.dataset.bbLayout === 'landscape');
     const slotEl = document.querySelector(`[data-bb-slot="${mv.slot}"]`);
     if (!slotEl) return false;
 
     const slotRect = slotEl.getBoundingClientRect();
-    const grab = toClient(TRAY_X[mv.slot], TRAY_Y, rect);
     // prefer the element center when the layout is scaled oddly
     const g0 = { clientX: slotRect.left + slotRect.width / 2, clientY: slotRect.top + slotRect.height / 2 };
-    void grab;
 
-    const target = dropPoint(piece, mv.r, mv.c);
-    const drop = toClient(target.x, target.y, rect);
+    const target = gridDropPoint(piece, mv.r, mv.c, viewport, GAME_GRID);
+    const drop = toClient(target.x, target.y, rect, viewport);
 
     const p = this.pace();
 
