@@ -24,6 +24,11 @@ test('recorder stops all capture tracks, releases video and returns a usable blo
   let result,error;
   const stop=await createGameRecorder({element:{getBoundingClientRect:()=>({left:100,top:20,width:200,height:400})},audio:true,onTime(){},onComplete:b=>result=b,onError:e=>error=e});
   stop();await new Promise(resolve=>queueMicrotask(resolve));
+  assert.equal(canvas.width,1080);assert.equal(canvas.height,1920);
   assert.equal(error,undefined);assert.ok(result.size>0);assert.equal(result.type,'video/mp4');assert.equal(video.srcObject,null);assert.equal(video.paused,true);assert.ok(Object.values(stops).every(n=>n>=1));
+  const wideStop=await createGameRecorder({element:{getBoundingClientRect:()=>({left:100,top:20,width:200,height:400})},audio:false,output:{width:1920,height:1080},onTime(){},onComplete(){},onError:e=>error=e});
+  assert.equal(canvas.width,1920);assert.equal(canvas.height,1080);
+  wideStop();await new Promise(resolve=>queueMicrotask(resolve));
+  await assert.rejects(()=>createGameRecorder({element:{},audio:false,output:{width:1919,height:1080},onTime(){},onComplete(){},onError(){}}),/even/);
  }finally{for(const [k,d] of saved){if(d)Object.defineProperty(globalThis,k,d);else delete globalThis[k];}}
 });
