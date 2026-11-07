@@ -80,6 +80,33 @@ test('picks earliest due owner job once and appends authoritative comment', asyn
   }
 });
 
+test('recovers a previously uploaded artifact without rendering a duplicate', async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  try {
+    globalThis.fetch = async (url, options = {}) => {
+      calls.push({ url: String(url), options });
+      const target = String(url);
+      const body = target.includes('/issues?') ? [issue()] :
+        target.includes('/issues/7/comments?') ? [botEvent('started', 12345, '2020-01-01T00:00:00Z')] :
+        target.includes('/actions/runs/12345/artifacts?') ?
+          { artifacts: [{ name: 'BlockRush-Queued-7-12345', expired: false }] } : {};
+      return { ok: true, status: 200, json: async () => body };
+    };
+    const out = await pickDueJob({
+      GITHUB_REPOSITORY: 'jessicacarter9955/block-rush',
+      GITHUB_TOKEN: 'fake-token', GITHUB_RUN_ID: String(runId),
+    });
+    assert.equal(out.has_job, 'false');
+    assert.equal(calls.filter(c => c.options.method === 'PATCH').length, 1);
+    const recovery = calls.find(c => c.options.method === 'POST');
+    assert.match(JSON.parse(recovery.options.body).body, /actions\/runs\/12345/);
+    assert.doesNotMatch(JSON.parse(recovery.options.body).body, /Rendering avviato/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('finalize closes only after both rendering and artifact succeed', async () => {
   const originalFetch = globalThis.fetch;
   const calls = [];
