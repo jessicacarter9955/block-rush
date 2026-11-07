@@ -124,10 +124,10 @@ function githubClient(env) {
   return { repo, owner, runId, runUrl, request, list };
 }
 
-async function postEvent(api, issueNumber, kind, { attempt, message } = {}) {
+async function postEvent(api, issueNumber, kind, { attempt, message, url } = {}) {
   await api.request(`/issues/${issueNumber}/comments`, {
     method: 'POST',
-    body: { body: statusComment(kind, api.runId, { attempt, message, url: api.runUrl }) },
+    body: { body: statusComment(kind, api.runId, { attempt, message, url: url ?? api.runUrl }) },
   });
 }
 
@@ -172,7 +172,10 @@ export async function pickDueJob(env = process.env) {
     if (state.status !== 'ready') continue;
     if (state.previous?.kind === 'started') {
       if (await artifactExists(api, issue.number, state.previous.runId)) {
-        await postEvent(api, issue.number, 'completed');
+        // The artifact belongs to the previous run, not this recovery scan.
+        await postEvent(api, issue.number, 'completed', {
+          url: `https://github.com/${api.repo}/actions/runs/${state.previous.runId}`,
+        });
         await closeIssue(api, issue.number);
         continue;
       }
