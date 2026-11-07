@@ -27,6 +27,7 @@ import { soundEngine } from '@/lib/audio';
 import { BP } from '@/lib/bp';
 import { withAlpha, lighten } from '@/lib/color';
 import { blockImgTile, fontCss, type SkinState } from '@/lib/skin';
+import { boardPoint, gameViewport, pointerToGrid, screenToStage } from '@/lib/game-viewport';
 
 interface Popup { id: number; x: number; y: number; value: number }
 interface Flash { id: number; r: number; c: number }
@@ -47,9 +48,18 @@ const RANKING_ROWS: { name: string; score: number }[] = [
   { name: 'Royce', score: 650 },
 ];
 
-export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement | null> }) {
+export function PlayGame({ areaRef, landscape = false, stageWidth = 1080 }: {
+  areaRef: React.RefObject<HTMLDivElement | null>;
+  landscape?: boolean;
+  stageWidth?: number;
+}) {
   const skin = useStudio((s) => s.skin);
   const setPlaying = useStudio((s) => s.setPlaying);
+  const viewport = useMemo(() => gameViewport(stageWidth, landscape), [stageWidth, landscape]);
+  const gridGeometry = useMemo(() => ({
+    x: BOARD.gridX, y: BOARD.gridY, pitchX: GRIDG.px, pitchY: GRIDG.py,
+    sizeX: BOARD.size, sizeY: BOARD.h,
+  }), []);
 
   const [board, setBoard] = useState<Board>(() => Array(64).fill(null));
   const [initialDeal] = useState(()=>fairDeal(Array(64).fill(null),[0,1,2]));
@@ -189,12 +199,8 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
   const toDesign = useCallback((clientX: number, clientY: number) => {
     const el = areaRef.current;
     if (!el) return { x: 0, y: 0 };
-    const rect = el.getBoundingClientRect();
-    return {
-      x: ((clientX - rect.left) / rect.width) * 1080,
-      y: ((clientY - rect.top) / rect.height) * 1920,
-    };
-  }, [areaRef]);
+    return screenToStage(clientX, clientY, el.getBoundingClientRect(), viewport);
+  }, [areaRef, viewport]);
 
   const spawnLineFx = useCallback((skinRef: SkinState, rows: number[], cols: number[], cleared: Set<number>, colors: (number | null)[]) => {
     const style = skinRef.effects.particles;
@@ -378,10 +384,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
       const d = toDesign(e.clientX, e.clientY);
       setDrag((cur) => (cur ? { ...cur, x: d.x, y: d.y } : cur));
       const piece = drag.piece;
-      const tlx = d.x - (piece.w * GRIDG.px) / 2;
-      const tly = (d.y - 200) - (piece.h * GRIDG.py) / 2;
-      const c = Math.round((tlx - BOARD.gridX) / GRIDG.px);
-      const r = Math.round((tly - BOARD.gridY) / GRIDG.py);
+      const { r, c } = pointerToGrid(d, piece, viewport, gridGeometry);
       if (r >= -1 && r <= GRID && c >= -1 && c <= GRID) {
         const valid = canPlace(boardRef.current, piece, r, c);
         const lines = valid ? previewLines(boardRef.current, piece, r, c) : { rows: [], cols: [] };
@@ -393,10 +396,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
     const up = (e: PointerEvent) => {
       const d = toDesign(e.clientX, e.clientY);
       const piece = drag.piece;
-      const tlx = d.x - (piece.w * GRIDG.px) / 2;
-      const tly = (d.y - 200) - (piece.h * GRIDG.py) / 2;
-      const c = Math.round((tlx - BOARD.gridX) / GRIDG.px);
-      const r = Math.round((tly - BOARD.gridY) / GRIDG.py);
+      const { r, c } = pointerToGrid(d, piece, viewport, gridGeometry);
       if (canPlace(boardRef.current, piece, r, c)) {
         doPlace(drag.slot, r, c);
       } else {
@@ -411,7 +411,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
     };
-  }, [drag, toDesign, doPlace, sfxOn]);
+  }, [drag, toDesign, doPlace, sfxOn, viewport, gridGeometry]);
 
   const restart = () => {
     setShowSolution(false);setHintDialog(false);setReplayOpen(false);
@@ -468,25 +468,31 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
           '--shake-amp': `${shakeAmp}px`,
         } as React.CSSProperties}
       >
-      <BackgroundView skin={skin} />
+      <BackgroundView skin={skin} landscape={landscape} />
 
       {/* HUD — 1:1: cuore e punteggio CONCENTRICI a (540,243), corona pulita
           in alto a sx col best SOTTO, pausa patch ricostruita a (981,115) */}
       {heartOn && (
-        <div className="bb-heartpulse" style={pos(540, 243, 240, 240)}>
+        <div className="bb-heartpulse" style={pos(landscape ? 230 : 540, landscape ? 510 : 243, 240, 240)}>
           <MaskIconView sprite="Heart-f00.png" color={skin.effects.comboGlow} size={240} glow={30} />
         </div>
       )}
-      <ScoreFit value={scoreShown} x={560} y={243} w={530} h={200} size={160}/>
-      <div style={pos(148,107,158,158)}><Crown size={158}/></div>
-      <ScoreFit value={Math.max(best,score)} x={148} y={258} w={240} h={110} size={92} color="#fdf303"/>
-      <Round kind="help" x={805} y={115} size={120} onClick={()=>{setDrag(null);setGhost(null);setHintMessage('');setHintDialog(true);}}/>
-      <div style={pos(981, 115, 185, 185)}>
+      <ScoreFit value={scoreShown} x={landscape ? 235 : 560} y={landscape ? 510 : 243} w={landscape ? 450 : 530} h={200} size={landscape ? 142 : 160}/>
+      <div style={pos(landscape ? 235 : 148, landscape ? 165 : 107,158,158)}><Crown size={158}/></div>
+      <ScoreFit value={Math.max(best,score)} x={landscape ? 235 : 148} y={landscape ? 317 : 258} w={landscape ? 450 : 240} h={110} size={92} color="#fdf303"/>
+      <Round kind="help" x={landscape ? viewport.width - 292 : 805} y={115} size={120} onClick={()=>{setDrag(null);setGhost(null);setHintMessage('');setHintDialog(true);}}/>
+      <div style={pos(landscape ? viewport.width - 103 : 981, 115, 185, 185)}>
         <Round kind="pause" size={142} x={92.5} y={92.5} onClick={() => { setPaused(true); if (sfxOn) soundEngine.playEvent(skin.sounds.button); }} />
       </div>
 
       {/* board */}
-      <div style={pos(BOARD.x, BOARD.y, BOARD.size, BOARD.h)}>
+      <div
+        data-bb-board="interactive"
+        style={{
+          ...pos(landscape ? viewport.width / 2 : BOARD.x, landscape ? viewport.height / 2 : BOARD.y, BOARD.size, BOARD.h),
+          ...(landscape ? { transform: `scale(${viewport.boardScale})`, transformOrigin: 'center center' } : {}),
+        }}
+      >
         <BoardFrameView skin={skin} />
         <EmptyCellsView skin={skin} />
         {board.map((v, i) => {
@@ -535,21 +541,25 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
           key={p.id}
           className="bb-fly"
           style={{
-            position: 'absolute', left: p.x, top: p.y,
-            width: p.size, height: p.size,
+            position: 'absolute', left: boardPoint(p, viewport, gridGeometry).x, top: boardPoint(p, viewport, gridGeometry).y,
+            width: p.size * viewport.boardScale, height: p.size * viewport.boardScale,
             background: 'transparent',
             filter: `drop-shadow(0 0 9px ${p.color})`,
             borderRadius: p.round ? '50%' : 4,
             border: undefined,
             // @ts-expect-error css vars
-            '--dx': `${p.dx}px`, '--dy': `${p.dy}px`, '--rot': `${p.rot}deg`,
+            '--dx': `${p.dx * viewport.boardScale}px`, '--dy': `${p.dy * viewport.boardScale}px`, '--rot': `${p.rot}deg`,
           }}
-        ><Gem color={p.color} size={p.size}/><span className="rush-sparkle"/></div>
+        ><Gem color={p.color} size={p.size * viewport.boardScale}/><span className="rush-sparkle"/></div>
       ))}
 
       {/* +N popups */}
       {popups.map((p) => (
-        <div key={p.id} className="bb-popup" style={pos(p.x, p.y, 500, 220)}>
+        <div key={p.id} className="bb-popup" style={pos(
+          boardPoint(p, viewport, gridGeometry).x,
+          landscape ? Math.min(970, boardPoint(p, viewport, gridGeometry).y) : p.y,
+          500 * viewport.boardScale, 220 * viewport.boardScale,
+        )}>
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <span className="rush-earned">+{p.value}</span>
           </div>
@@ -558,7 +568,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
 
       {/* combo */}
       {comboShow && (
-        <div className="bb-combo" style={pos(540, 780, 650, 280)}>
+        <div className="bb-combo" style={pos(landscape ? viewport.width / 2 : 540, landscape ? viewport.height / 2 : 780, 650 * viewport.boardScale, 280 * viewport.boardScale)}>
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
             <span style={{ ...fontCss('riffic', 64), color: '#FFFFFF', letterSpacing: '0.1em', textShadow: `0 0 22px ${withAlpha(skin.effects.comboGlow, 0.9)}` }}>COMBO</span>
             <span className="rush-multiplier">×{comboShow.n}</span>
@@ -570,7 +580,8 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
       {/* tray — 1:1 reference: slot fissi ben distanziati (190/540/890), pezzi
           a celle 89px, clamp delle forme larghe così non si toccano mai */}
       {[0, 1, 2].map((slot) => {
-        const X = [190, 540, 890][slot];
+        const X = landscape ? viewport.width - 208 : [190, 540, 890][slot];
+        const Y = landscape ? [350, 585, 820][slot] : 1600;
         const p = tray[slot];
         const ph = skin.tray;
         const holder: React.CSSProperties = ph.img
@@ -586,7 +597,7 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
         // clamp: le forme larghe si rimpiccioliscono per non toccare i vicini
         const scale = p ? Math.min(1, 300 / (p.w * 89), 300 / (p.h * 89)) : 1;
         return (
-          <div key={slot} data-bb-slot={slot} style={{...pos(X, 1600, 340, 340),outline:hint?.slot===slot?'4px solid #aafff0':undefined,borderRadius:22}}
+          <div key={slot} data-bb-slot={slot} style={{...pos(X, Y, 340, 340),...(landscape ? {transform:'scale(0.62)',transformOrigin:'center center'} : {}),outline:hint?.slot===slot?'4px solid #aafff0':undefined,borderRadius:22}}
             onPointerDown={onPieceDown(slot)}>
             {(ph.img || ph.style !== 'none') && <div style={{ position: 'absolute', inset: 0, ...holder }} />}
             {p && !isDragging && (
@@ -600,22 +611,29 @@ export function PlayGame({ areaRef }: { areaRef: React.RefObject<HTMLDivElement 
         );
       })}
 
-      {hint && <div style={{...pos(540,1408,1050,42),textAlign:'center',font:'29px Arial',color:'#bafff2'}}>Pezzo {hint.slot+1} → celle luminose</div>}
+      {hint && <div style={{...pos(landscape ? viewport.width / 2 : 540, landscape ? 1025 : 1408,1050,42),textAlign:'center',font:'29px Arial',color:'#bafff2'}}>Pezzo {hint.slot+1} → celle luminose</div>}
       {/* dragged piece follows the pointer, lifted like the original */}
       {drag && (
-        <div style={{ ...pos(drag.x, drag.y - 200, 600, 600), pointerEvents: 'none', zIndex: 60 }}>
+        <div style={{ ...pos(drag.x, drag.y - viewport.dragLift, 600, 600), ...(landscape ? {transform:`scale(${viewport.boardScale})`,transformOrigin:'center center'} : {}), pointerEvents: 'none', zIndex: 60 }}>
           <div style={{ position: 'absolute', left: 300, top: 300, transform: 'translate(-50%,-50%)' }}>
             <PieceView skin={skin} cells={drag.piece.cells} color={drag.piece.color} w={drag.piece.w} h={drag.piece.h} cellSize={GRIDG.px} />
           </div>
         </div>
       )}
 
+      {(paused || ranking || reviveOffer || gameOver || hintDialog || replayOpen) && landscape &&
+        <div style={{position:'absolute',inset:0,background:'rgba(4,8,24,.7)',zIndex:80}} />}
+      <div style={landscape ? {
+        position:'absolute',left:(viewport.width-1080*.55)/2,top:(viewport.height-1920*.55)/2,
+        width:1080,height:1920,transform:'scale(.55)',transformOrigin:'top left',zIndex:90,
+      } : {display:'contents'}}>
       {paused && !gameOver && !ranking && <PauseMenu resume={()=>setPaused(false)} home={()=>setPlaying(false)} restart={restart} ranking={()=>setRanking(true)} musicOn={musicOn} sfxOn={sfxOn} sfx={()=>setSfxOn(!sfxOn)} music={()=>{ if(musicOn) soundEngine.stopMusic(); else void soundEngine.startMusic(skin.sounds.music); setMusicOn(!musicOn); }}/>}
       {ranking && <Ranking best={Math.max(best,score)} onClose={()=>setRanking(false)}/>}
       {reviveOffer && <Reward seconds={reviveLeft} continueRun={watchReviveAd} adRequired={adsReady} busy={adBusy} replay={openReplay} end={()=>{setReviveOffer(false);setGameOver(true);}}/>}
       {gameOver && <EndRun replay={proofRef.current.solution.length?openReplay:undefined} score={score} best={Math.max(best,score)} restart={playAgain} home={()=>setPlaying(false)}/>}
       {hintDialog && <HintDialog hasSolution={solution.length>0} busy={hintBusy} message={hintMessage} watch={watchHintAd} close={()=>{if(!hintBusy)setHintDialog(false);}} demo={process.env.NODE_ENV==='development'?unlockHint:undefined} replay={openReplay}/>}
       {replayOpen && <SolutionReplay proof={proofRef.current} skin={skin} close={()=>setReplayOpen(false)}/>}
+      </div>
       </div>
     </div>
   );
