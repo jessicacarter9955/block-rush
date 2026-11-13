@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f7f4">
+  <meta name="description" content="Calcola le frequenze in ore, giorni e occorrenze: 24 ore, settimane, mesi, trimestri e anni.">
+  <title>Frequency Atlas · Scala delle frequenze</title>
+  <link rel="stylesheet" href="./style.css">
+  <script defer src="./calc.js"></script>
+  <script defer src="./app.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#inizio" aria-label="Frequency Atlas, torna all'inizio">
+        <span class="brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 18V9m5 9V5m5 13v-7m5 7V3" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg></span>
+        <span>Frequency<span class="brand-accent">Atlas</span></span>
+      </a>
+      <nav aria-label="Sezioni">
+        <a href="#scala">Scala</a>
+        <a href="#ripetizioni">Ripetizioni</a>
+        <a href="#tabella">Tabella</a>
+      </nav>
+      <span class="topbar-pill">8 livelli · 6 periodi</span>
+    </header>
+
+    <main id="inizio">
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="eyebrow-dot"></span> STRUMENTO INTERATTIVO</p>
+          <h1>La frequenza,<br><em>resa visibile.</em></h1>
+          <p class="hero-lead">Quanto significa <strong>spesso</strong>, <strong>quasi sempre</strong> o <strong>un terzo del tempo</strong>? Esplora ogni percentuale in ore, giorni e occorrenze concrete.</p>
+          <div class="hero-actions">
+            <a class="primary-link" href="#scala">Esplora la scala <span aria-hidden="true">↗</span></a>
+            <a class="subtle-link" href="#tabella">Vedi tutte le conversioni <span aria-hidden="true">↓</span></a>
+          </div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="hero-circle outer"><div class="hero-circle inner"><div class="hero-circle core"><span id="hero-rate">33⅓<small>%</small></span><span class="hero-circle-label">del tempo</span></div></div></div>
+          <div class="art-note note-top"><span>●</span> Tempo attivo</div>
+          <div class="art-note note-bottom">24h × frequenza</div>
+        </div>
+      </section>
+
+      <section id="scala" class="section dashboard">
+        <div class="section-title-row">
+          <div><p class="section-kicker">01 / SCALA</p><h2>Esplora le frequenze</h2><p>Seleziona un livello: tutti i widget si aggiornano automaticamente.</p></div>
+          <div class="selection-bubble" id="selection-name">Un terzo del tempo</div>
+        </div>
+
+        <div class="level-selector panel">
+          <div class="level-label-row"><span class="form-label">Livello di frequenza</span><span class="live-percent" id="level-pct">33,33%</span></div>
+          <div class="level-buttons" id="level-buttons" role="group" aria-label="Seleziona una percentuale"></div>
+          <div class="slider-row">
+            <label for="custom-range">Oppure personalizza</label>
+            <input id="custom-range" type="range" min="0" max="100" step="1" value="33" aria-label="Percentuale personalizzata">
+            <span id="range-readout">33%</span>
+          </div>
+          <div class="adverbs" id="adverb-list" aria-live="polite"></div>
+        </div>
+
+        <div class="insights-grid">
+          <article class="panel period-panel">
+            <div class="panel-heading"><div><span class="card-kicker">DISTRIBUZIONE</span><h3>Tempo attivo e inattivo</h3></div><span class="icon-circle" aria-hidden="true">◷</span></div>
+            <div class="period-tabs" id="period-tabs" role="group" aria-label="Seleziona periodo"></div>
+            <div class="metric-duo">
+              <div class="metric"><span class="metric-label"><span class="dot green"></span>Attivo</span><strong class="metric-big" id="active-days">10</strong><span class="metric-unit" id="active-days-unit">giorni equivalenti</span><span class="metric-detail" id="active-hours">240 ore</span></div>
+              <div class="metric"><span class="metric-label"><span class="dot gray"></span>Inattivo</span><strong class="metric-big" id="inactive-days">20</strong><span class="metric-unit" id="inactive-days-unit">giorni equivalenti</span><span class="metric-detail" id="inactive-hours">480 ore</span></div>
+            </div>
+            <div class="stacked-track" id="split-track" role="img" aria-label="Barra proporzionale del tempo attivo"><span id="split-active"></span></div>
+            <div class="track-labels"><span id="split-text">33,33% attivo</span><span id="split-rest">66,67% inattivo</span></div>
+            <div class="tiny-blocks" id="period-blocks" aria-label="Rappresentazione simbolica del periodo"></div>
+            <p class="fineprint">La distribuzione è proporzionale, non indica giorni o orari specifici di un calendario.</p>
+          </article>
+
+          <article class="panel interpretation-panel">
+            <div class="panel-heading"><div><span class="card-kicker">INTERPRETAZIONE</span><h3>Che cosa stai misurando?</h3></div><span class="icon-circle" aria-hidden="true">≋</span></div>
+            <div class="mode-switch" id="mode-switch" role="group" aria-label="Tipo di frequenza">
+              <button type="button" data-mode="time" class="active">Tempo continuo</button>
+              <button type="button" data-mode="days">Giorni con attività</button>
+            </div>
+            <div class="mode-illustration" id="mode-illustration"></div>
+            <div class="mode-result" id="mode-result"></div>
+            <p class="fineprint" id="mode-note">La percentuale rappresenta la durata complessiva, non il numero di sessioni.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="ripetizioni" class="section">
+        <div class="section-title-row"><div><p class="section-kicker">02 / CALCOLATORE</p><h2>Ogni quante ore?</h2><p>Scopri quante volte si ripete un'attività a intervalli regolari.</p></div></div>
+        <div class="panel recurrence-panel">
+          <div class="recurrence-inputs">
+            <div class="field-group"><label class="form-label" for="every-hours">Ripeti l'attività ogni</label><div class="number-input"><input id="every-hours" type="number" min="0.01" max="8760" step="any" inputmode="decimal" value="5" aria-describedby="interval-error"><span>ore</span></div><p id="interval-error" class="error" role="alert" hidden>Inserisci un intervallo valido maggiore di zero.</p></div>
+            <fieldset class="start-group"><legend class="form-label">Prima occorrenza</legend><label class="radio-choice"><input type="radio" name="first-event" value="now" checked> Subito (ora 0)</label><label class="radio-choice"><input type="radio" name="first-event" value="later"> Dopo il primo intervallo</label></fieldset>
+            <div class="recurrence-callout"><span>Media giornaliera</span><strong id="recurrence-average">4,8</strong><small>occorrenze / 24h</small></div>
+          </div>
+          <div class="example-strip" id="example-strip">Esempio: ogni 5 ore, da subito → 5 occorrenze nelle prime 24 ore (ore 0, 5, 10, 15, 20).</div>
+          <div class="table-scroller">
+            <table class="data-table recurrence-table">
+              <thead><tr><th>Periodo</th><th>Occorrenze effettive</th><th>Media matematica</th></tr></thead>
+              <tbody id="recurrence-rows"></tbody>
+            </table>
+          </div>
+          <p class="fineprint">Le occorrenze effettive sono contate nell'intervallo che include l'inizio ed esclude la fine. La media matematica può essere frazionaria.</p>
+        </div>
+      </section>
+
+      <section id="tabella" class="section">
+        <div class="section-title-row">
+          <div><p class="section-kicker">03 / RIFERIMENTO</p><h2>Tutte le percentuali</h2><p>La tabella completa del tuo quaderno, verificata e convertita.</p></div>
+          <button type="button" class="outline-button" id="download-csv"><span aria-hidden="true">↓</span> Esporta CSV</button>
+        </div>
+        <div class="panel table-panel">
+          <div class="table-scroller wide">
+            <table class="data-table reference-table">
+              <thead><tr><th>Frequenza</th><th>24 ore</th><th>7 giorni</th><th>14 giorni</th><th>30 giorni</th><th>90 giorni</th><th>365 giorni</th></tr></thead>
+              <tbody id="reference-rows"></tbody>
+            </table>
+          </div>
+          <div class="table-footer"><span><span class="dot green"></span> Riga selezionata in evidenza</span><span>Mese = 30 gg · Trimestre = 90 gg · Anno = 365 gg</span></div>
+        </div>
+      </section>
+
+      <section class="section meaning-section">
+        <div><p class="section-kicker">04 / LINGUA</p><h2>Come dirlo in inglese</h2><p>Gli avverbi di frequenza originali, raggruppati su una scala pratica.</p></div>
+        <div class="adverb-grid" id="all-adverbs"></div>
+        <p class="fineprint">Attenzione: le percentuali sono convenzioni didattiche, non definizioni grammaticali. “Constantly” non equivale sempre a “ogni giorno”; “regularly” indica regolarità, non una quota fissa.</p>
+      </section>
+    </main>
+    <footer><span class="brand footer-brand">Frequency<span class="brand-accent">Atlas</span></span><span>Uno strumento per rendere concreti tempo e frequenza.</span><a href="#inizio">Torna su ↑</a></footer>
+  </div>
+</body>
+</html>
